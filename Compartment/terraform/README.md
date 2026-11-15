@@ -1,4 +1,4 @@
-# Lab 00 — Create a compartment using Terraform
+# Create a compartment using Terraform
 
 ## 1. Prepare your workstation and access
 
