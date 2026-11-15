@@ -5,7 +5,7 @@ home_region        = "eu-frankfurt-1" # Replace with YOUR tenancy's home region.
 
 # Tenancy root: ocid1.tenancy...; nested parent: ocid1.compartment...
 parent_compartment_ocid  = "REPLACE_WITH_PARENT_COMPARTMENT_OR_TENANCY_OCID"
-compartment_name         = "OCITestDriveBudapest-alice-01"
+compartment_name         = "OCITestDriveBudapest"
 compartment_description = "Resource container for the OCITestDriveBudapest hands-on labs"
 
 freeform_tags = {

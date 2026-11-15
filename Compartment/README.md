@@ -1,4 +1,4 @@
-# Lab 00 — Create a compartment using the OCI Console
+# Create a compartment using the OCI Console
 
 ## Goal
 
@@ -13,7 +13,7 @@ Create one empty compartment for all resources in the following OCITestDriveBuda
 | Field | Example / instruction |
 | --- | --- |
 | Parent compartment | Tenancy root, or the existing parent assigned by the instructor |
-| Name | `OCITestDriveBudapest-alice-01` |
+| Name | `OCITestDriveBudapest` |
 | Description | `Resource container for the OCITestDriveBudapest hands-on labs` |
 | Optional free-form tag | `Project = OCITestDriveBudapest` |
 
