@@ -1,0 +1,69 @@
+# ATTENDEES: edit this file. Resource definitions are in main.tf.
+# Required: replace the compartment OCID, verify region, and choose your prefix.
+region              = "eu-frankfurt-1"
+compartment_id      = "ocid1.compartment.oc1..REPLACE_ME"
+auth_method         = "APIKey"
+config_file_profile = "DEFAULT"
+name_prefix         = "p01"
+
+vcn = {
+  name       = "vcn"
+  cidr_block = "10.0.0.0/16"
+  dns_label  = "p01vcn"
+}
+
+gateways = {
+  internet_name    = "igw"
+  nat_name         = "natgw"
+  service_name     = "sgw"
+  internet_enabled = true
+  nat_blocked      = false
+  service_blocked  = false
+}
+
+subnets = {
+  public_lb = {
+    name               = "subnet-public-lb"
+    cidr_block         = "10.0.0.0/24"
+    dns_label          = "publiclb"
+    is_public          = true
+    route_table_name   = "rt-public-lb"
+    security_list_name = "sl-public-lb"
+  }
+  private_vm = {
+    name               = "subnet-private-vm"
+    cidr_block         = "10.0.1.0/24"
+    dns_label          = "privatevm"
+    is_public          = false
+    route_table_name   = "rt-private-vm"
+    security_list_name = "sl-private-vm"
+  }
+  private_db = {
+    name               = "subnet-private-db"
+    cidr_block         = "10.0.2.0/24"
+    dns_label          = "privatedb"
+    is_public          = false
+    route_table_name   = "rt-private-db"
+    security_list_name = "sl-private-db"
+  }
+}
+
+routing = {
+  default_destination  = "0.0.0.0/0"
+  service_name_pattern = "(?i)^All .* Services In Oracle Services Network$"
+}
+
+security = {
+  # false means STATEFUL for every ingress and egress rule.
+  stateless                = false
+  internal_protocol        = "all"
+  egress_protocol          = "all"
+  egress_destination       = "0.0.0.0/0"
+  public_ingress_source    = "0.0.0.0/0"
+  public_ingress_tcp_ports = [80, 443]
+}
+
+freeform_tags = {
+  Project = "OCITestDriveBudapest"
+  Purpose = "Hands-on OCI networking training"
+}
