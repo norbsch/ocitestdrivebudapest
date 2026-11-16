@@ -148,15 +148,12 @@ The lab includes one README for both deployment options:
 
 | File | Purpose |
 | --- | --- |
-| `README.md` | Console and Terraform instructions |
 | `terraform/versions.tf` | Terraform and OCI provider requirements |
-| `terraform/.terraform.lock.hcl` | Provider selection and checksums from initialization |
 | `terraform/provider.tf` | OCI region and authentication profile |
 | `terraform/variables.tf` | Input definitions and validation |
 | `terraform/terraform.tfvars.example` | Editable example parameters |
 | `terraform/main.tf` | Existing network lookups, NSG, rule, and database system |
 | `terraform/outputs.tf` | Database ID, endpoint details, CA certificate, and NSG ID |
-| `terraform/.gitignore` | Excludes local parameters, state, plans, and downloaded providers |
 
 Install Terraform 1.5 or later, below 2.0, and configure OCI API-key authentication in `~/.oci/config`. The profile must include your tenancy OCID, user OCID, API key fingerprint, and private-key file path. The example selects the `DEFAULT` profile. Authentication setup: [OCI SDK and CLI configuration](https://docs.oracle.com/en-us/iaas/Content/API/Concepts/sdkconfig.htm).
 
