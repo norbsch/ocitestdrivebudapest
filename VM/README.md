@@ -38,7 +38,7 @@ Use your attendee prefix in place of `p01`, matching the networking lab. For Opt
 | --- | --- | --- |
 | Display name | `p01-vm-01` | `p01-vm-02` |
 | Placement | AD1 | AD2 |
-| Image family |  Canonical Ubuntu 24.04 | Canonical Ubuntu 24.04 |
+| Image family |  Canonical Ubuntu 24.04 | Same |
 | Exact image | `Canonical-Ubuntu-24.04-2026.11.05-0` | Same |
 | Shape | `VM.Standard.E5.Flex` | Same |
 | OCPUs | 2 | 2 |
@@ -47,12 +47,11 @@ Use your attendee prefix in place of `p01`, matching the networking lab. For Opt
 | Existing subnet | `p01-subnet-private-vm` (`10.0.1.0/24`) | Same |
 | Primary private IPv4 | `10.0.1.2` (manual) | `10.0.1.3` (manual) |
 | Public IPv4 | None | None |
-| Metadata service | Require IMDSv2; disable IMDSv1 | Same |
 | SSH key | Generate and save one pair | Reuse VM 1's public key |
 
 Use the standard x86 image `Oracle-Linux-9.8-2026.10.30-0`. Confirm availability in the selected region before the workshop; use an instructor-approved replacement only if necessary.
 
-Require **IMDSv2** for both instances; disable legacy IMDSv1 endpoints. For other settings not specified here, keep the Console defaults. Terraform leaves optional settings such as boot-volume size, fault domain, launch options, and agent configuration unspecified so OCI chooses its defaults. Optional Console and API defaults can differ; the table above defines the required configuration.
+For other settings not specified here, keep the Console defaults. Terraform leaves optional settings such as boot-volume size, fault domain, launch options, and agent configuration unspecified so OCI chooses its defaults. Optional Console and API defaults can differ; the table above defines the required configuration.
 
 ## Option A - Deployment steps for OCI Console
 
@@ -93,7 +92,7 @@ Console labels and section order may vary; complete all the sections below befor
 
 ### 5. Create VM 1
 
-1. In the instance metadata/security settings, enable **Require IMDSv2** (disable legacy IMDSv1 endpoints). Apply the same setting for VM 2. Keep **Storage / Boot volume** and other optional settings at their defaults.
+1. Keep **Storage / Boot volume** and other optional settings at their defaults.
 2. Review the name, AD1, image build, shape, **2 OCPUs / 4 GB**, subnet, and `10.0.1.2`.
 3. Click **Create** and wait for **Running**.
 4. In the instance details and primary VNIC details, verify the private IP is `10.0.1.2` and no public IP is present.
@@ -169,16 +168,6 @@ terraform validate
 ```
 
 The provider constraint supports OCI provider major versions 7 and 8. Initialization records the selected provider in `.terraform.lock.hcl`; commit that lock file to GitHub for repeatable workshop runs. Retain the reviewed lock file supplied with the Terraform source when publishing the lab; this README does not establish which provider version your checkout locks.
-
-### Require IMDSv2
-
-Before planning, confirm that each instance resource contains the following block. This is a source correction for a missing setting; routine attendee changes remain in `terraform.tfvars`. If the source exposes this setting as a variable, set that variable to `true` in the parameter file instead.
-
-```hcl
-instance_options {
-  are_legacy_imds_endpoints_disabled = true
-}
-```
 
 ### 5. Review the plan
 
