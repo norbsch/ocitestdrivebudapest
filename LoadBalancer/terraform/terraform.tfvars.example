@@ -1,0 +1,48 @@
+# Copy this file to terraform.tfvars, then edit the values for your tenancy.
+region                 = "eu-frankfurt-1"
+config_file_profile    = "DEFAULT"
+compartment_id         = "ocid1.compartment.oc1..REPLACE_ME"
+network_compartment_id = null # null = same compartment as the LB
+backend_compartment_id = null # null = same compartment as the LB
+
+network = {
+  vcn_name    = "p01-vcn"
+  subnet_name = "p01-subnet-public-lb"
+}
+
+load_balancer = {
+  name                      = "p01-lb-01"
+  is_private                = false # false = public; true = private
+  reserved_public_ip_id     = null  # null = ephemeral for public LB; or supply an existing reserved public IP OCID
+  minimum_bandwidth_in_mbps = 10
+  maximum_bandwidth_in_mbps = 100
+}
+
+backend_set = {
+  name   = "p01-backendset-http"
+  policy = "ROUND_ROBIN"
+}
+
+# Keys are exact, unique VM display names within backend_compartment_id.
+# Terraform discovers the primary private IPv4 address of each VM.
+backends = {
+  "p01-vm-01" = { port = 80, weight = 1 }
+  "p01-vm-02" = { port = 80, weight = 1 }
+}
+
+health_check = {
+  protocol          = "HTTP"
+  port              = 80
+  url_path          = "/"
+  return_code       = 200
+  interval_ms       = 10000
+  timeout_in_millis = 3000
+  retries           = 3
+}
+
+listener = {
+  name                    = "p01-listener-http-80"
+  protocol                = "HTTP"
+  port                    = 80
+  idle_timeout_in_seconds = 60
+}
