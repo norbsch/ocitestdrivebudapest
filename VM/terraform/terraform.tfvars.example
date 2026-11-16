@@ -7,7 +7,7 @@ network_compartment_ocid = "ocid1.compartment.oc1..REPLACE_ME"
 
 vcn_name           = "p01-vcn"
 subnet_name        = "p01-subnet-private-vm"
-image_display_name = "Oracle-Linux-9.8-2026.10.30-0"
+image_display_name = "Canonical-Ubuntu-24.04-2026.11.05-0"
 shape              = "VM.Standard.E5.Flex"
 ocpus              = 2
 memory_in_gbs      = 4

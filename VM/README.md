@@ -4,7 +4,7 @@
 
 ## Goal / Estimated time
 
-Create two private Oracle Linux VMs in the existing regional VM subnet, one in AD1 and one in AD2, sharing one SSH public key.
+Create two private Ubuntu Linux VMs in the existing regional VM subnet, one in AD1 and one in AD2, sharing one SSH public key.
 
 **Estimated time:** 30–45 minutes using OCI Console; 20–30 minutes using Terraform after authentication is configured. Allow additional time for private SSH connectivity if it is not already available.
 
@@ -38,8 +38,8 @@ Use your attendee prefix in place of `p01`, matching the networking lab. For Opt
 | --- | --- | --- |
 | Display name | `p01-vm-01` | `p01-vm-02` |
 | Placement | AD1 | AD2 |
-| Image family | Oracle Linux 9 | Oracle Linux 9 |
-| Exact image | `Oracle-Linux-9.8-2026.10.30-0` | Same |
+| Image family |  Canonical Ubuntu 24.04 | Canonical Ubuntu 24.04 |
+| Exact image | `Canonical-Ubuntu-24.04-2026.11.05-0` | Same |
 | Shape | `VM.Standard.E5.Flex` | Same |
 | OCPUs | 2 | 2 |
 | Memory | 4 GB | 4 GB |
@@ -68,8 +68,8 @@ Console labels and section order may vary; complete all the sections below befor
 ### 2. Select the image and shape
 
 1. In **Image and shape**, click **Change image**.
-2. Select **Oracle Linux**, version **9** (9.8 where a minor version is shown).
-3. Open the image-build/version selector, if present, and select `Oracle-Linux-9.8-2026.10.30-0`. Confirm the complete image name before continuing.
+2. Select **Ubuntu**, version **24.04**.
+3. Open the image-build/version selector, if present, and select `2026.11.05-0`. Confirm the complete image name before continuing.
 4. If the build is absent, use its region-specific image OCID from the official image page through the image selector's **Image OCID** option, where available. If OCI rejects it or it is unavailable in your region, ask the instructor which build to use; do not silently select latest.
 5. Click **Change shape**. Select the AMD flexible shape **VM.Standard.E5.Flex**.
 6. Set **OCPUs to 2** and **memory to 4 GB**. Confirm the shape selection. On this x86 shape, 2 OCPUs correspond to 4 vCPUs; do not enter 4 in the OCPU field.
@@ -223,17 +223,6 @@ For the Console path, substitute the downloaded private-key filename and, on Lin
 
 If your instructor supplies a jump host, substitute its reachable address, user, and key in your SSH configuration or ProxyJump command. An OCI Bastion managed SSH session uses its own generated connection command and requires its prerequisites and a session for each target. Do not assume these private IPs are reachable directly from your laptop or Cloud Shell.
 
-After logging in, run:
-
-```bash
-cat /etc/oracle-release
-lscpu
-free -h
-hostname -I
-```
-
-Expect Oracle Linux 9.8, 4 logical CPUs for 2 E5 OCPUs, approximately 4 GB installed memory (usable memory is lower), and the assigned private IP. The OS release confirms the OS version; use the Console image details or Terraform's `image_id` output to verify the exact launch image build. Exit VM 1 before connecting to VM 2.
-
 Keep attendee settings in `terraform.tfvars`, separate from resource definitions. Keep credentials, private keys, state, and saved plans out of GitHub. Commit the Terraform source, sanitized example parameters, and reviewed `.terraform.lock.hcl`. Use a separate working directory and state for each lab and attendee.
 
 **Validation scope:** Only README files were supplied for this update. The Terraform source and a live OCI deployment were not validated during standardization. Run the checks and review the plan in your workshop environment.
@@ -272,7 +261,7 @@ Keep Terraform state until cleanup succeeds. Ensure `.gitignore` excludes state,
 ## Oracle documentation references
 
 - [Creating an instance](https://docs.oracle.com/en-us/iaas/Content/Compute/Tasks/launchinginstance.htm)
-- [Oracle Linux 9.8 image: 2026.10.30-0](https://docs.oracle.com/en-us/iaas/images/oracle-linux-9x/oracle-linux-9-8-2026-10-30-0.htm)
+- [Ubuntu 24.04 image catalog and regional OCIDs](https://docs.oracle.com/en-us/iaas/images/ubuntu-2404/)
 - [Compute shapes](https://docs.oracle.com/en-us/iaas/Content/Compute/References/computeshapes.htm)
 - [Managing SSH key pairs](https://docs.oracle.com/en-us/iaas/Content/Compute/Tasks/managingkeypairs.htm)
 - [VCNs and subnets, including reserved addresses](https://docs.oracle.com/en-us/iaas/Content/Network/Tasks/Overview_of_VCNs_and_Subnets.htm)

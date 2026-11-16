@@ -31,7 +31,6 @@ data "oci_core_subnets" "vm" {
 
 data "oci_core_images" "linux" {
   compartment_id   = var.compartment_ocid
-  operating_system = "Oracle Linux"
   shape            = var.shape
   state            = "AVAILABLE"
 
