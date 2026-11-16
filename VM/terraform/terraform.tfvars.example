@@ -1,0 +1,27 @@
+# Copy this file to terraform.tfvars and edit it. All attendee settings live here.
+region                   = "eu-frankfurt-1"
+config_file_profile      = "DEFAULT"
+tenancy_ocid             = "ocid1.tenancy.oc1..REPLACE_ME"
+compartment_ocid         = "ocid1.compartment.oc1..REPLACE_ME"
+network_compartment_ocid = "ocid1.compartment.oc1..REPLACE_ME"
+
+vcn_name           = "p01-vcn"
+subnet_name        = "p01-subnet-private-vm"
+image_display_name = "Oracle-Linux-9.8-2026.10.30-0"
+shape              = "VM.Standard.E5.Flex"
+ocpus              = 2
+memory_in_gbs      = 4
+
+# Generate this key before terraform plan; reuse its public key for both VMs.
+ssh_public_key_path = "~/.ssh/p01-vm-key.pub"
+
+instances = {
+  p01-vm-01 = {
+    ad_number  = 1
+    private_ip = "10.0.1.2"
+  }
+  p01-vm-02 = {
+    ad_number  = 2
+    private_ip = "10.0.1.3"
+  }
+}
