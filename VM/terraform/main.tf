@@ -31,15 +31,14 @@ data "oci_core_subnets" "vm" {
 
 data "oci_core_images" "linux" {
   compartment_id   = var.compartment_ocid
-  display_name     = var.image_display_name
   operating_system = "Oracle Linux"
   shape            = var.shape
   state            = "AVAILABLE"
-  lifecycle {
-    postcondition {
-      condition     = length(self.images) == 1
-      error_message = "The exact Oracle Linux image was not uniquely found for this shape in this region. Verify the image name and regional availability."
-    }
+
+  filter {
+    name   = "display_name"
+    values = [var.image_display_name]
+    regex  = false
   }
 }
 
@@ -59,7 +58,10 @@ resource "oci_core_instance" "vm" {
     ocpus         = var.ocpus
     memory_in_gbs = var.memory_in_gbs
   }
-
+  
+  instance_options {
+    are_legacy_imds_endpoints_disabled = true
+  }
   create_vnic_details {
     subnet_id        = local.subnet.id
     private_ip       = each.value.private_ip
