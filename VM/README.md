@@ -1,8 +1,36 @@
-# Create two private OCI virtual machines Hands-on Lab
+# Virtual Machines Hands-on Lab
 
-Part of **OCITestDriveBudapest**. This lab builds on the compartment and networking labs. Create two Oracle Linux instances in the existing private VM subnet, with one instance in each of two availability domains and the same SSH public key on both.
+**Project:** OCITestDriveBudapest
 
-Choose **either the Console procedure or Terraform procedure**. Running both with the default addresses will cause an IP conflict. No instances have been deployed by this guide.
+## Goal / Estimated time
+
+Create two private Oracle Linux VMs in the existing regional VM subnet, one in AD1 and one in AD2, sharing one SSH public key.
+
+**Estimated time:** 30–45 minutes using OCI Console; 20–30 minutes using Terraform after authentication is configured. Allow additional time for private SSH connectivity if it is not already available.
+
+## Contents
+
+- [Goal / Estimated time](#goal--estimated-time)
+- [Before you begin](#before-you-begin)
+- [Target configuration](#target-configuration)
+- [Option A - Deployment steps for OCI Console](#option-a---deployment-steps-for-oci-console)
+- [Option B - Deployment steps for Terraform](#option-b---deployment-steps-for-terraform)
+- [Troubleshooting](#troubleshooting)
+- [Optional cleanup](#optional-cleanup)
+- [Oracle documentation references](#oracle-documentation-references)
+
+## Before you begin
+
+1. Sign in to OCI and select the region containing your existing lab network. The region must expose **AD1 and AD2**, with E5 capacity in both. AD names include a tenancy-specific prefix; select the entries ending in `AD-1` and `AD-2`.
+2. Select the compartment created in the earlier lab. You need permissions to launch instances and boot volumes, use the existing subnet, and inspect the network, images, and availability domains. Ask the instructor to resolve missing access.
+3. Under **Networking → Virtual cloud networks**, open `p01-vcn` and verify that `p01-subnet-private-vm` has CIDR `10.0.1.0/24`, is **private**, and is **regional**. An AD-specific subnet cannot serve both requested ADs.
+4. Verify that `10.0.1.2` and `10.0.1.3` are unused. OCI reserves the first two and last addresses of a subnet; for this /24, those are `.0`, `.1`, and `.255`. Both requested addresses are valid.
+5. Allow for the cost of two E5 instances and their boot volumes. Review your tenancy limits and estimate before launching.
+6. For SSH verification, have a routed private connection (VPN/FastConnect) or an instructor-provided bastion. Applicable security lists/NSGs must allow TCP 22 from that connection's source. A NAT gateway provides outbound access; it does not provide inbound SSH access.
+
+Choose **Option A or Option B** for this lab. Both produce the same target configuration. Do not deploy both against the same resources. Run the labs in order: **Compartment → Networking → Virtual Machines**.
+
+Use your attendee prefix in place of `p01`, matching the networking lab. For Option B, install Terraform CLI **1.5 or later, below 2.0**, and OpenSSH.
 
 ## Target configuration
 
@@ -19,22 +47,14 @@ Choose **either the Console procedure or Terraform procedure**. Running both wit
 | Existing subnet | `p01-subnet-private-vm` (`10.0.1.0/24`) | Same |
 | Primary private IPv4 | `10.0.1.2` (manual) | `10.0.1.3` (manual) |
 | Public IPv4 | None | None |
+| Metadata service | Require IMDSv2; disable IMDSv1 | Same |
 | SSH key | Generate and save one pair | Reuse VM 1's public key |
 
-Oracle lists the requested image build as **Oracle Linux 9.8**, released November 4, 2026. Use the standard x86 image, rather than an Arm or GPU variant. Exact image availability must be checked in the selected region.
+Use the standard x86 image `Oracle-Linux-9.8-2026.10.30-0`. Confirm availability in the selected region before the workshop; use an instructor-approved replacement only if necessary.
 
-Unless this guide explicitly changes a setting, keep the Console defaults. Terraform leaves optional settings such as boot-volume size, fault domain, launch options, and agent configuration unspecified so OCI chooses its defaults. Optional Console and API defaults can differ; the table above defines the required configuration.
+Require **IMDSv2** for both instances; disable legacy IMDSv1 endpoints. For other settings not specified here, keep the Console defaults. Terraform leaves optional settings such as boot-volume size, fault domain, launch options, and agent configuration unspecified so OCI chooses its defaults. Optional Console and API defaults can differ; the table above defines the required configuration.
 
-## Before you begin
-
-1. Sign in to OCI and select the region containing your existing lab network. The region must expose **AD1 and AD2**, with E5 capacity in both. AD names include a tenancy-specific prefix; select the entries ending in `AD-1` and `AD-2`.
-2. Select the compartment created in the earlier lab. You need permissions to launch instances and boot volumes, use the existing subnet, and inspect the network, images, and availability domains. Ask the instructor to resolve missing access.
-3. Under **Networking → Virtual cloud networks**, open `p01-vcn` and verify that `p01-subnet-private-vm` has CIDR `10.0.1.0/24`, is **private**, and is **regional**. An AD-specific subnet cannot serve both requested ADs.
-4. Verify that `10.0.1.2` and `10.0.1.3` are unused. OCI reserves the first two and last addresses of a subnet; for this /24, those are `.0`, `.1`, and `.255`. Both requested addresses are valid.
-5. Allow for the cost of two E5 instances and their boot volumes. Review your tenancy limits and estimate before launching.
-6. For SSH verification, have a routed private connection (VPN/FastConnect) or an instructor-provided bastion. Applicable security lists/NSGs must allow TCP 22 from that connection's source. A NAT gateway provides outbound access; it does not provide inbound SSH access.
-
-## Option A: OCI Console
+## Option A - Deployment steps for OCI Console
 
 ### 1. Start VM 1
 
@@ -73,7 +93,7 @@ Console labels and section order may vary; complete all the sections below befor
 
 ### 5. Create VM 1
 
-1. Keep **Storage / Boot volume** and other optional settings at their defaults.
+1. In the instance metadata/security settings, enable **Require IMDSv2** (disable legacy IMDSv1 endpoints). Apply the same setting for VM 2. Keep **Storage / Boot volume** and other optional settings at their defaults.
 2. Review the name, AD1, image build, shape, **2 OCPUs / 4 GB**, subnet, and `10.0.1.2`.
 3. Click **Create** and wait for **Running**.
 4. In the instance details and primary VNIC details, verify the private IP is `10.0.1.2` and no public IP is present.
@@ -95,7 +115,9 @@ Console labels and section order may vary; complete all the sections below befor
 5. Keep other settings at defaults, click **Create**, and wait for **Running**.
 6. Verify AD2, private IP `10.0.1.3`, and no public IP.
 
-## Option B: Terraform
+## Option B - Deployment steps for Terraform
+
+Run Terraform commands from this lab’s `terraform/` directory, alongside the existing `.tf` files and `terraform.tfvars.example`. Keep this README at the lab root. This document consolidates the supplied guides; the Terraform source files are maintained separately and are required for Option B.
 
 ### 1. Prepare authentication and tooling
 
@@ -146,7 +168,17 @@ terraform fmt -check
 terraform validate
 ```
 
-The provider constraint supports OCI provider major versions 7 and 8. Initialization records the selected provider in `.terraform.lock.hcl`; commit that lock file to GitHub for repeatable workshop runs. The included lock file pins OCI provider 8.29.0. Retain it when publishing the lab.
+The provider constraint supports OCI provider major versions 7 and 8. Initialization records the selected provider in `.terraform.lock.hcl`; commit that lock file to GitHub for repeatable workshop runs. Retain the reviewed lock file supplied with the Terraform source when publishing the lab; this README does not establish which provider version your checkout locks.
+
+### Require IMDSv2
+
+Before planning, confirm that each instance resource contains the following block. This is a source correction for a missing setting; routine attendee changes remain in `terraform.tfvars`. If the source exposes this setting as a variable, set that variable to `true` in the parameter file instead.
+
+```hcl
+instance_options {
+  are_legacy_imds_endpoints_disabled = true
+}
+```
 
 ### 5. Review the plan
 
@@ -178,7 +210,7 @@ Both VMs may launch concurrently and use the same public key. Generating a new k
 | `main.tf` | Existing-resource lookups and two VM resources |
 | `outputs.tf` | Instance IDs, placement, private IPs, states, and image OCID |
 
-## Verify SSH access
+### Verify SSH access (either deployment option)
 
 Use the same private key for both VMs. The following commands require an existing routed private connection to the subnet:
 
@@ -202,6 +234,10 @@ hostname -I
 
 Expect Oracle Linux 9.8, 4 logical CPUs for 2 E5 OCPUs, approximately 4 GB installed memory (usable memory is lower), and the assigned private IP. The OS release confirms the OS version; use the Console image details or Terraform's `image_id` output to verify the exact launch image build. Exit VM 1 before connecting to VM 2.
 
+Keep attendee settings in `terraform.tfvars`, separate from resource definitions. Keep credentials, private keys, state, and saved plans out of GitHub. Commit the Terraform source, sanitized example parameters, and reviewed `.terraform.lock.hcl`. Use a separate working directory and state for each lab and attendee.
+
+**Validation scope:** Only README files were supplied for this update. The Terraform source and a live OCI deployment were not validated during standardization. Run the checks and review the plan in your workshop environment.
+
 ## Troubleshooting
 
 | Symptom | Check |
@@ -216,8 +252,9 @@ Expect Oracle Linux 9.8, 4 logical CPUs for 2 E5 OCPUs, approximately 4 GB insta
 | SSH timeout | Verify private routing, bastion/session status, TCP 22 security rules, and guest SSH service. NAT alone is insufficient. |
 | Permission denied (publickey) | Use user `opc` and the private key matching the public key installed at creation. |
 | Apply partially succeeds | Keep the state, resolve the reported failure, then create a fresh plan and apply it. Do not delete state or recreate an already managed VM manually. |
+| `Invalid instanceOptions.areLegacyImdsEndpointsDisabled: false` / `imds-disable-v1` | The tenancy prohibits IMDSv1. Require IMDSv2 in the Console, or set `instance_options.are_legacy_imds_endpoints_disabled = true` in Terraform as shown above, then review and apply a fresh plan. |
 
-## Clean up
+## Optional cleanup
 
 For **Terraform-created instances**, from the same directory, using the same state and inputs:
 
@@ -230,9 +267,9 @@ Review that only this lab's two instances are removed. Boot volumes created with
 
 For **Console-created instances**, select each instance under **Compute → Instances**, choose **Terminate**, and enable deletion of its boot volume if no longer needed. Review remaining block volumes. Keep the prerequisite compartment and networking until all dependent labs are finished.
 
-Keep Terraform state until cleanup succeeds. The supplied `.gitignore` excludes state, local variable files, plans, and common key filenames. Commit the source and provider lock file; never commit credentials or SSH private keys. If you choose a custom key filename, keep it outside the repository.
+Keep Terraform state until cleanup succeeds. Ensure `.gitignore` excludes state, local variable files, plans, and common key filenames. Commit the source and provider lock file; never commit credentials or SSH private keys. If you choose a custom key filename, keep it outside the repository.
 
-## Official references
+## Oracle documentation references
 
 - [Creating an instance](https://docs.oracle.com/en-us/iaas/Content/Compute/Tasks/launchinginstance.htm)
 - [Oracle Linux 9.8 image: 2026.10.30-0](https://docs.oracle.com/en-us/iaas/images/oracle-linux-9x/oracle-linux-9-8-2026-10-30-0.htm)
@@ -242,7 +279,3 @@ Keep Terraform state until cleanup succeeds. The supplied `.gitignore` excludes 
 - [Terraform: instance resource](https://docs.oracle.com/en-us/iaas/tools/terraform-provider-oci/latest/docs/r/core_instance.html)
 - [Terraform: image data source](https://docs.oracle.com/en-us/iaas/tools/terraform-provider-oci/latest/docs/d/core_images.html)
 - [Terraform: AD lookup by AD number](https://docs.oracle.com/en-us/iaas/tools/terraform-provider-oci/latest/docs/d/identity_availability_domain.html)
-
-## Validation scope
-
-Checked with Terraform CLI 1.9.8: `terraform fmt -check` passed and `terraform init -backend=false` installed OCI provider 8.29.0. Input references were also checked. Full `terraform validate` was blocked by a provider startup/handshake failure in the authoring environment; provider-schema validation is therefore incomplete. No live OCI plan or apply was run. Run the validation and plan steps above in your workshop environment before use; a plan requires your configured OCI access, and regional capacity remains subject to availability.
