@@ -1,0 +1,33 @@
+# Copy to terraform.tfvars, then replace the compartment OCID.
+region                   = "eu-frankfurt-1"
+config_file_profile      = "DEFAULT"
+compartment_ocid         = "ocid1.compartment.oc1..REPLACE_ME"
+network_compartment_ocid = null # Set an OCID if the network is in another compartment.
+
+db_system_name        = "p01-postgresql"
+db_version            = "17"
+node_count            = 2
+storage_iops          = 75000
+availability_domain   = "sgUC:EU-FRANKFURT-1-AD-1"
+is_regionally_durable = false
+shape                 = "PostgreSQL.VM.Standard.E5.Flex"
+ocpu_count            = 2
+memory_size_in_gbs    = 16
+
+vcn_name                    = "p01-vcn"
+subnet_name                 = "p01-subnet-private-db"
+primary_endpoint_private_ip = "10.0.2.2"
+reader_endpoint_enabled     = false
+nsg_name                    = "p01-postgresql-nsg"
+client_cidr                 = "10.0.1.0/24"
+
+db_admin_username = "labadmin"
+# Prefer an environment variable or Terraform's interactive password prompt.
+# db_admin_password = "REPLACE_WITH_YOUR_OWN_STRONG_PASSWORD"
+
+backup_start          = "02:00"
+backup_retention_days = 7
+freeform_tags = {
+  Project = "OCITestDriveBudapest"
+  Lab     = "PostgreSQL"
+}

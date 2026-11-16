@@ -204,8 +204,8 @@ Both VMs may launch concurrently and use the same public key. Generating a new k
 Use the same private key for both VMs. The following commands require an existing routed private connection to the subnet:
 
 ```bash
-ssh -i ~/.ssh/p01-vm-key opc@10.0.1.2
-ssh -i ~/.ssh/p01-vm-key opc@10.0.1.3
+ssh -i ~/.ssh/p01-vm-key ubuntu@10.0.1.2
+ssh -i ~/.ssh/p01-vm-key ubuntu@10.0.1.3
 ```
 
 For the Console path, substitute the downloaded private-key filename and, on Linux/macOS, restrict it with `chmod 600 /path/to/private-key`. Confirm host-key fingerprints through a trusted channel before accepting them.
@@ -228,7 +228,7 @@ Keep attendee settings in `terraform.tfvars`, separate from resource definitions
 | IP already in use | Remove the conflicting lab deployment or choose an approved unused IP. Do not run both procedures against the same IPs. |
 | Terraform cannot read key file | Generate the key before planning and check the `.pub` path on the Terraform execution machine. |
 | SSH timeout | Verify private routing, bastion/session status, TCP 22 security rules, and guest SSH service. NAT alone is insufficient. |
-| Permission denied (publickey) | Use user `opc` and the private key matching the public key installed at creation. |
+| Permission denied (publickey) | Use user `ubuntu` and the private key matching the public key installed at creation. |
 | Apply partially succeeds | Keep the state, resolve the reported failure, then create a fresh plan and apply it. Do not delete state or recreate an already managed VM manually. |
 | `Invalid instanceOptions.areLegacyImdsEndpointsDisabled: false` / `imds-disable-v1` | The tenancy prohibits IMDSv1. Require IMDSv2 in the Console, or set `instance_options.are_legacy_imds_endpoints_disabled = true` in Terraform as shown above, then review and apply a fresh plan. |
 
