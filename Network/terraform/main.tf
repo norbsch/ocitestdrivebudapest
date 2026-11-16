@@ -46,7 +46,6 @@ resource "oci_core_service_gateway" "lab" {
   compartment_id = var.compartment_id
   vcn_id         = oci_core_vcn.lab.id
   display_name   = "${var.name_prefix}-${var.gateways.service_name}"
-  block_traffic  = var.gateways.service_blocked
   freeform_tags  = var.freeform_tags
 
   services {
