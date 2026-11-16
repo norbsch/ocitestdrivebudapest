@@ -1,12 +1,12 @@
-# Hands-on Lab: OCI Database with PostgreSQL
+# OCI Database with PostgreSQL Hands-on Lab
 
-## Goal/Estimated Time for the Hands-on Lab
+**Project:** OCITestDriveBudapest
+
+## Goal/Estimated time
 
 Create an OCI Database with PostgreSQL system in the existing lab network, using either the OCI Console or Terraform. Confirm its configuration and connect over TLS from a private lab VM.
 
 **Estimated time:** 45–60 minutes, including provisioning. Provisioning time varies with regional capacity.
-
-**Project:** OCITestDriveBudapest
 
 Choose one deployment option for this lab. Using both with the same endpoint IP causes an address conflict. This lab creates billable database and storage resources; review the Console cost estimate before deployment.
 
