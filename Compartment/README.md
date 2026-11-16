@@ -1,4 +1,4 @@
-# Create a compartment using the OCI Console
+# Create a compartment using the OCI Console Hands-on Lab
 
 ## Goal
 

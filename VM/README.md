@@ -1,4 +1,4 @@
-# Lab: Create two private OCI virtual machines
+# Create two private OCI virtual machines Hands-on Lab
 
 Part of **OCITestDriveBudapest**. This lab builds on the compartment and networking labs. Create two Oracle Linux instances in the existing private VM subnet, with one instance in each of two availability domains and the same SSH public key on both.
 
