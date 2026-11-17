@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Create only missing workshop role/database. Keep existing passwords and data."""
+import argparse
 import getpass
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
@@ -19,6 +20,9 @@ def verify_application(psycopg, params):
         row = conn.execute("SELECT current_user, current_database(), has_schema_privilege(current_user, 'public', 'CREATE')").fetchone()
         if tuple(row) != ('litellm', 'litellm', True):
             raise SystemExit('Az alkalmazas DB-user/db neve vagy public schema CREATE joga nem megfelelo.')
+        tls = conn.execute('SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid()').fetchone()
+        if tls is None or tls[0] is not True:
+            raise SystemExit('A DB-kapcsolat nem hasznal TLS-t.')
     print('PASS: litellm adatbazis/felhasznalo, verify-full TLS es schema CREATE jog.')
 
 
@@ -58,7 +62,10 @@ def initialize(conn, password, sql):
                 conn.execute(sql.SQL('REVOKE litellm FROM {}').format(sql.Identifier(admin)))
 
 
-def main():
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--check-only', action='store_true', help='Csak kapcsolat es jogok ellenorzese; nincs adminbelepes vagy DB-letrehozas.')
+    args = parser.parse_args(argv)
     import psycopg
     from psycopg import sql
     v = read_env(ROOT / 'deployment.env')
@@ -75,6 +82,8 @@ def main():
         verify_application(psycopg, params)
         return
     except psycopg.Error:
+        if args.check_only:
+            raise SystemExit('FAIL: a PostgreSQL meg nem hasznalhato. Elobb a 7.5 pont prepare_postgres.sh scriptjet futtasd; ellenorizd a DB-cimet, halozatot, CA-t es jelszot.')
         print('Az alkalmazas DB-kapcsolata meg nem hasznalhato; egyszeri DB-admin ellenorzes kovetkezik.')
     admin_password = getpass.getpass('OCI PostgreSQL admin jelszava (' + v['DB_ADMIN'] + '): ')
     if not admin_password:

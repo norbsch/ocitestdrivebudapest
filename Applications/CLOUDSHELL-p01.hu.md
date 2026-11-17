@@ -113,7 +113,7 @@ APP_02_PRIVATE_IP=10.0.1.3
 
 A LiteLLM-helyőrzőt a tényleges harmadik VM címére cseréld. A két app a 13. fejezetben ugyanazt a LiteLLM URL-t és virtuális kulcsot kapja. Az OCI API-kulcs és a DB-jelszó csak a LiteLLM VM-re kerül.
 
-A külön LiteLLM VM-re belépve, az adatlap és kulcsok előkészítése után a fő guide 9. fejezetének `bash scripts/install_litellm.sh` parancsa végzi egyben a telepítést. Mindkét app VM-en a 14. fejezet `bash scripts/install_app.sh` parancsát használd a közös appkonfiguráció felmásolása után. A mellékelt service a **80-as porton**, `ubuntu` felhasználóként indul, a szükséges portkötési capabilityvel.
+A külön LiteLLM VM-re belépve, az adatlap és kulcsok előkészítése után előbb a fő guide 7.5 pontjának `bash scripts/prepare_postgres.sh` parancsát futtasd. Ez létrehozza és teszteli a PostgreSQL alkalmazás-adatbázist és felhasználót. A 8. pont sikeres kapcsolatellenőrzése után a 9. fejezet `bash scripts/install_litellm.sh` parancsa végzi egyben a telepítést. Mindkét app VM-en a 14. fejezet `bash scripts/install_app.sh` parancsát használd a közös appkonfiguráció felmásolása után. A mellékelt service a **80-as porton**, `ubuntu` felhasználóként indul, a szükséges portkötési capabilityvel.
 
 ## 6 Az LB beállításai és tesztje
 
