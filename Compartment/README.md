@@ -21,9 +21,12 @@ Create an empty OCI compartment to contain the resources from the remaining labs
 
 ## Before you begin
 
-1. Sign in to the OCI Console in the tenancy provided by your instructor.
-2. Confirm that your account can create compartments under the designated parent. Your instructor must arrange compartment management permissions and the resource permissions needed by later labs; this exercise creates no IAM policies.
-3. Choose the values below. Use your assigned attendee suffix in the name to avoid collisions.
+### 1. Confirm the prerequisites
+
+1. Sign in to the [OCI Console](https://cloud.oracle.com/) in the tenancy provided by your instructor.
+2. Select your tenancy's **home region** for this compartment lab.
+3. Identify the parent compartment assigned by the instructor, or use the tenancy root.
+4. Choose the values below. Use your attendee suffix to avoid name collisions.
 
 | Field | Example / instruction |
 | --- | --- |
@@ -34,17 +37,21 @@ Create an empty OCI compartment to contain the resources from the remaining labs
 
 Use a name of 1–100 characters containing letters, numbers, periods, hyphens, or underscores. Keep the description between 1 and 400 characters. The name must be unique within its parent. Avoid confidential information in names, descriptions, and tags.
 
-Choose **Option A or Option B** for this lab. Both produce the same target configuration. Do not deploy both against the same resources.
+### 2. Confirm permissions and capacity
 
-For Option B – Terraform, choose one of the following authentication methods and set the parameters in terraform.tfvars:
+Confirm that your account can create compartments under the designated parent. Your instructor must arrange compartment management permissions and the resource permissions needed by later labs. This lab creates no IAM policies, and creating a compartment does not grant access to resources inside it.
 
-- Local machine (auth = "APIKey"): Install Terraform CLI and configure an OCI API-signing-key profile in ~/.oci/config. Set oci_config_profile to the profile name, such as "DEFAULT". The profile must contain tenancy, user, fingerprint, and key_file. Register the matching public key with your OCI user and keep the private key outside the repository.
+### 3. Choose a deployment option
 
-- OCI Cloud Shell (auth = "InstancePrincipal"): Terraform CLI is already installed. Use Cloud Shell’s existing authentication environment; no API-signing-key profile is required. Omit oci_config_profile from terraform.tfvars.
+Choose **Option A - OCI Console** or **Option B - Terraform**. Both options create the target configuration below. Use one option for each lab deployment; do not create the same resources with both options.
 
-For this lab, set region to your tenancy’s home region. Your OCI user must have permission to create compartments under the selected parent compartment.
+Use your assigned attendee prefix in place of `p01`, consistently across all labs. Follow the workshop order: **Compartment → Network → VM → Load Balancer → PostgreSQL → OKE**.
+
+For Option B, follow the two authentication methods in [Prepare the environment and authentication](#2-prepare-the-environment-and-authentication). Keep attendee settings in `terraform.tfvars` and use a separate Terraform directory and state for each lab and attendee.
 
 ## Target configuration
+
+### Resource settings
 
 | Setting | Required value |
 | --- | --- |
@@ -68,112 +75,197 @@ This lab creates no IAM policies, networking, compute, or database resources. Cr
 
 ### 2. Create the compartment
 
-1. Enter your **Name** and **Description** from Before you begin.
+1. Enter your **Name** and **Description** from **Before you begin**.
 2. Verify **Parent compartment** carefully. Select the instructor-designated parent if necessary.
 3. Optionally add the free-form tag shown above. Follow any tagging requirements imposed by your tenancy.
 4. Select **Create compartment**.
 5. Open the new compartment and wait for its lifecycle state to become **Active**. Refresh if needed.
 
-### 3. Record and verify the result
+### 3. Verify deployment
 
 1. Check its name and parent on the compartment details page.
 2. Find **OCID** and select **Copy**. Record this as the **lab compartment OCID**.
 3. In the next lab, select this compartment on every applicable resource creation form. Allow a short propagation delay if it does not immediately appear in a selector, then refresh.
 
-**Success:** one Active compartment exists under the intended parent, and you have its OCID.
+**Success criteria:** one Active compartment exists under the intended parent, and you have its OCID.
 
 Keep the compartment for all remaining labs.
 
 ## Option B - Deployment steps for Terraform
 
-Run Terraform commands from this lab’s `terraform/` directory, alongside the existing `.tf` files and `terraform.tfvars.example`.
+Complete **Before you begin** first. This lab has one README for both deployment options. Run all Terraform commands from `Compartment/terraform/` in your repository checkout.
 
-### 1. Set all lab parameters in one separate file
+### 1. Review the Terraform files
 
-From this `terraform` directory:
+All paths in this table are relative to `Compartment/terraform/`.
+
+| File | Purpose |
+| --- | --- |
+| `versions.tf` | Defines the supported Terraform and OCI provider versions. |
+| `provider.tf` | Configures the OCI region and selected authentication method. |
+| `variables.tf` | Declares input parameters, types, and validation rules. |
+| `terraform.tfvars.example` | Provides the example lab settings; copy it to `terraform.tfvars`. |
+| `terraform.tfvars` | Contains your local attendee settings; created in step 3 and kept out of Git. |
+| `main.tf` | Creates the lab compartment. |
+| `outputs.tf` | Reports the compartment OCID, name, and lifecycle state. |
+| `.terraform.lock.hcl` | Records the selected provider version and checksums; created or reused by `terraform init` and committed after review. |
+
+Keep normal lab changes in `terraform.tfvars`; use `variables.tf` to check accepted inputs. Provider version constraints stay in `versions.tf`.
+
+### 2. Prepare the environment and authentication
+
+Use **Terraform 1.5 or later, below 2.0**, as required by `versions.tf`. The OCI provider constraint for this lab is `>= 7.0.0, < 8.0.0`. Terraform installs the provider during initialization. The command examples use Bash, available in OCI Cloud Shell and common Linux/macOS terminals. On Windows, use a compatible shell or adapt the shell syntax.
+
+Choose one of the following authentication methods. In this lab, `auth` is the input that sets the OCI provider's `auth` argument. Add the selected values to `terraform.tfvars` in step 3.
+
+#### Local machine (`auth = "APIKey"`)
+
+Install Terraform CLI and configure an OCI API-signing-key profile in `~/.oci/config`. The profile must contain `tenancy`, `user`, `fingerprint`, and `key_file`. Register the matching public key with your OCI user, and keep the private key outside the repository.
+
+```hcl
+auth                = "APIKey"
+config_file_profile = "DEFAULT"
+```
+
+Replace `DEFAULT` with your profile name if needed.
+
+#### OCI Cloud Shell (`auth = "InstancePrincipal"`)
+
+Open Cloud Shell from your signed-in OCI Console session. Terraform CLI is already installed; check its version with `terraform version`. Use Cloud Shell's existing authentication environment. You do not need to create an API-signing-key profile in `~/.oci/config` for this method.
+
+```hcl
+auth                = "InstancePrincipal"
+config_file_profile = "DEFAULT"
+```
+
+Keep `config_file_profile = "DEFAULT"` in the parameter file with the current repository code: `variables.tf` still requires this input, although the provider passes it as `null` and ignores it when `auth = "InstancePrincipal"`. This value does not require a local `DEFAULT` API-key profile in Cloud Shell. Do not omit it unless the variable declaration has also been made optional.
+
+Keep Cloud Shell's preconfigured authentication environment intact. The selected method must have the IAM permissions listed in **Before you begin**. Set `home_region` to your tenancy's home region for this lab.
+
+### 3. Configure the lab parameters
+
+From the repository root, open this lab's Terraform directory and create your local parameter file:
 
 ```bash
+cd Compartment/terraform
 cp terraform.tfvars.example terraform.tfvars
 ```
 
-Edit only `terraform.tfvars` for attendee-specific settings:
+If `terraform.tfvars` already exists, edit that file instead of overwriting it. Set the authentication values from step 2, then review the following lab inputs:
 
-| Parameter | What to enter |
+| Parameter | What to enter or check |
 | --- | --- |
-| `oci_config_profile` | Profile name from `~/.oci/config`, such as `DEFAULT` |
-| `home_region` | Your tenancy's home region ID |
-| `parent_compartment_ocid` | Existing parent compartment OCID, or tenancy OCID for root |
-| `compartment_name` | Your unique name, such as `OCITestDriveBudapest-p01` |
-| `compartment_description` | A short, nonblank description |
-| `freeform_tags` | Tag map, or `{}` for none |
-| `enable_compartment_delete` | Keep `true` for the workshop behavior described below |
+| `home_region` | Your tenancy's home region; use this field instead of `region` in this lab. |
+| `parent_compartment_ocid` | Existing parent compartment OCID, or tenancy OCID for the root. |
+| `compartment_name` | Unique attendee name, such as `OCITestDriveBudapest-p01`. |
+| `compartment_description` | A short, nonblank description. |
+| `freeform_tags` | Tag map, or `{}` for none. |
+| `enable_compartment_delete` | Keep `true` for the disposable workshop compartment. |
 
-All seven inputs are required and have no defaults in `variables.tf`, so editable lab values stay in the parameter file. Provider authentication mode and version constraints are maintained in code.
+With `enable_compartment_delete = true`, the provider rejects an existing-name collision and can delete the compartment during cleanup. With `false`, it can adopt a same-named compartment and change it; destroy then removes the resource from state without deleting the compartment. Keep `true` for this lab.
 
-**Deletion and collision behavior:** `enable_compartment_delete = true` makes the provider reject an existing-name collision and allows Terraform to attempt deletion during destroy. With `false`, the provider can silently adopt a same-named existing compartment and change it; destroy removes it from Terraform state without deleting the OCI compartment. Keep `true` for this lab and review any changes to this setting carefully.
+Terraform loads `terraform.tfvars` automatically; no `-var-file` argument is needed. Keep credentials, private keys, local parameter files, state, plans, and `.terraform/` out of Git. Check the applicable `.gitignore` rules; the repository does not provide complete Terraform exclusions for every lab. Commit the Terraform source, sanitized `terraform.tfvars.example`, and reviewed provider lock file.
 
-### 2. Initialize, validate, and review a plan
+### 4. Initialize and validate
 
 ```bash
 terraform init
 terraform fmt -recursive
 terraform validate
-terraform plan -out=compartment.tfplan
 ```
 
-Terraform loads `terraform.tfvars` automatically. Confirm the plan shows **1 to add, 0 to change, 0 to destroy**, with only `oci_identity_compartment.lab`. Check the parent, name, description, and tags. Stop and correct the inputs if the plan differs from what you intend.
+`init` installs the provider and creates or reuses `.terraform.lock.hcl`. `fmt` normalizes formatting; it does not change the intended infrastructure. `validate` checks configuration syntax and provider schema. Resolve errors before continuing. Retain the reviewed lock file for repeatable workshop runs; test provider upgrades before changing it.
 
-### 3. Create and verify the compartment
+### 5. Review the execution plan
 
 ```bash
-terraform apply compartment.tfplan
+terraform plan -out=lab.tfplan
+terraform show lab.tfplan
+```
+
+For a new deployment, expect **1 to add, 0 to change, 0 to destroy**: `oci_identity_compartment.lab`. Verify the parent, compartment name, description, and tags.
+
+Review the complete plan before applying. Stop if it includes unexpected changes or deletions. If you edit parameters after saving the plan, create and review a new plan.
+
+### 6. Apply the reviewed plan
+
+```bash
+terraform apply lab.tfplan
 terraform output
+```
+
+Applying a saved plan executes its reviewed changes without a second approval prompt. Wait for completion and keep the Terraform state for later updates and cleanup. If an apply only partially succeeds, retain the state, resolve the error, and create a fresh plan.
+
+### 7. Verify deployment
+
+```bash
 terraform output -raw compartment_ocid
 ```
 
-Applying the saved plan executes the reviewed changes. Expected result: one compartment, normally with state `ACTIVE`, and its OCID. Verify its parent and name under **Identity & Security → Compartments** in the Console.
+1. Open **Identity & Security → Compartments** and locate the new compartment.
+2. Confirm its parent, name, and **Active** state.
+3. Record the OCID for all subsequent labs. Allow for propagation if selectors do not show it immediately.
 
-Keep the local Terraform state: it tracks ownership for updates and cleanup. Do not commit state, plans, credentials, or attendee parameter files to GitHub. Ensure `.gitignore` excludes state, saved plans, and local `.tfvars` files while retaining the example and provider lock file.
+**Success criteria:** One Active compartment exists under the intended parent, and its OCID is recorded.
 
-Inspect the plan before applying: import records the resource in state but does not make the configuration match automatically. Import only once and never manage the same compartment from two Terraform states.
+### 8. Update the configuration
 
-Keep attendee settings in `terraform.tfvars`, separate from resource definitions. Keep credentials, private keys, state, and saved plans out of GitHub. Use a separate working directory and state for each lab and attendee.
+Edit `terraform.tfvars` for routine changes, then repeat steps 4–7 with the same working directory and state. Generate a new plan each time. Avoid editing Terraform-managed resources directly in the Console, and never manage the same resource from two Terraform states.
 
 ## Troubleshooting
 
-| Symptom | Action |
+### Authentication and Terraform
+
+| Symptom | What to check |
+| --- | --- |
+| APIKey authentication fails | Check the selected profile in `~/.oci/config`, tenancy/user OCIDs, fingerprint, key path, and registered public key. |
+| Cloud Shell tries to open `~/.oci/config` | Select `InstancePrincipal` with this lab's authentication input. Confirm the current provider passes `config_file_profile = null` for this mode, and remove any custom profile override that forces local API-key lookup. Keep Cloud Shell's managed authentication environment. |
+| Terraform prompts for `config_file_profile` in Cloud Shell | Keep `config_file_profile = "DEFAULT"` in `terraform.tfvars`; the current variable declaration requires a value even though the provider ignores it in this mode. |
+| Cloud Shell session authentication fails | Start a fresh signed-in Cloud Shell session and retry with its preconfigured environment. Check IAM permissions if authentication succeeds but requests are denied. |
+| Unexpected parameter prompt or undeclared-variable warning | Run commands from this lab's `terraform/` directory and use the exact input names declared in its `variables.tf`. |
+| `terraform validate` fails | Check the reported file/line and provider version. Initialize the directory first; use the reviewed `.terraform.lock.hcl`. |
+| Apply only partially succeeds | Keep state, resolve the reported error, then create and review a fresh plan before applying. |
+
+### Lab-specific issues
+
+| Symptom | What to check |
 | --- | --- |
 | Invalid OCID validation error | Replace the placeholder with the assigned parent or tenancy OCID. |
-| Authentication error | Check the selected profile, key path, fingerprint, registered public key, and tenancy/user OCIDs. |
 | Not authorized / not found | Confirm the parent OCID, tenancy, home region, and required IAM access with the instructor. |
-| Name collision | Pick a unique attendee name, or deliberately import your own existing compartment under Option B. |
+| Name collision | Pick a unique attendee name, or, for a resource you own and intend to manage, import it once with `terraform import oci_identity_compartment.lab YOUR_COMPARTMENT_OCID`, then review a fresh plan. Import does not reconcile configuration automatically. |
 | New compartment missing from selectors | Wait briefly for propagation, then refresh and check permissions. |
 | Destroy fails | Remove remaining resources, policies, and child compartments before retrying. |
 | Cannot create resources inside the new compartment | Ask the instructor to verify resource permissions; this lab creates no IAM policies. |
 
 ## Optional cleanup
 
-Keep the compartment until all other labs are cleaned up.
+Keep the compartment until all other labs have been cleaned up. Use the same deployment option that created each resource.
 
-### Console-created compartment
+### Option A - OCI Console
 
-1. Remove the resources created by the later labs first, preferably using the same tools and Terraform states that created them.
-2. Check for remaining resources across regions and any child compartments. The compartment must be empty before deletion; remove any policies attached to it as part of cleanup.
-3. Return to **Identity & Security → Compartments** and open the lab compartment.
-4. Use its **Delete** action and complete the Console confirmation. Deletion can take time.
+1. Remove resources from the later labs first, using their original deployment tool/state.
+2. Check all regions used, child compartments, and policies attached to the compartment. The compartment must be empty.
+3. Open **Identity & Security → Compartments**, select the lab compartment, and choose **Delete**.
+4. Confirm deletion and wait for the operation to complete; deletion is asynchronous.
 
-### Terraform-managed compartment
+### Option B - Terraform
 
-First destroy the resources from later labs using their own Terraform configurations, or remove Console-created resources. Check all regions used, attached policies, and child compartments. The compartment must be empty before deletion.
-
-From this compartment lab's `terraform` directory, with the original state and parameter file:
+From `Compartment/terraform/`, use the original state and parameter file. Create a cleanup plan:
 
 ```bash
 terraform plan -destroy -out=cleanup.tfplan
+terraform show cleanup.tfplan
+```
+
+Confirm the plan targets only your empty lab compartment. With `enable_compartment_delete = true`, the provider attempts actual OCI deletion. Remove any remaining resources, attached policies, and child compartments first, including resources in other regions.
+
+After reviewing the plan, apply it:
+
+```bash
 terraform apply cleanup.tfplan
 ```
 
-Confirm the plan targets only your lab compartment. The sample sets `enable_compartment_delete = true`, so the provider attempts actual deletion. Deletion is asynchronous and may take time. If a resource blocks deletion, remove the dependency and review a new destroy plan.
+Keep Terraform state until cleanup is confirmed. Delete shared network resources and the compartment only after all dependent labs are finished.
 
 ## Oracle documentation references
 
@@ -183,3 +275,5 @@ Confirm the plan targets only your lab compartment. The sample sets `enable_comp
 - [Configure the OCI provider](https://docs.oracle.com/en-us/iaas/Content/dev/terraform/configuring.htm)
 - [Targeting multiple regions and the IAM home region](https://docs.oracle.com/en-us/iaas/Content/dev/terraform/targeting-multiple-regions.htm)
 - [Delete a compartment](https://docs.oracle.com/en-us/iaas/Content/Identity/compartments/To_delete_a_compartment.htm)
+- [Using OCI Cloud Shell](https://docs.oracle.com/en-us/iaas/Content/API/Concepts/devcloudshellgettingstarted.htm)
+- [OCI SDK and CLI configuration file](https://docs.oracle.com/en-us/iaas/Content/API/Concepts/sdkconfig.htm)

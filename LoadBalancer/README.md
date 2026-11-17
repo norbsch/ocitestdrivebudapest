@@ -1,17 +1,16 @@
-# OCI Public Load Balancer Hands-on Lab
+# Load Balancer Hands-on Lab
 
 **Project:** OCITestDriveBudapest
 
-## Goal / Estimated Time for the Hands-on Lab
+## Goal / Estimated time
 
 Create a public OCI Flexible Load Balancer that distributes HTTP traffic across two existing VM web servers using Round Robin. Configure HTTP health checks, update security lists manually, and test traffic distribution and backend failure recovery.
 
 **Estimated time:** 30–45 minutes, assuming the compartment, network, and VMs already exist.
 
-This is the Load Balancer lab for **OCITestDriveBudapest**. Choose **Option A** or **Option B** to create the same configuration. Both options require the preparation and manual security-list steps below.
-
 ## Contents
 
+- [Goal / Estimated time](#goal--estimated-time)
 - [Before you begin](#before-you-begin)
 - [Target configuration](#target-configuration)
 - [Option A - Deployment steps for OCI Console](#option-a---deployment-steps-for-oci-console)
@@ -22,7 +21,9 @@ This is the Load Balancer lab for **OCITestDriveBudapest**. Choose **Option A** 
 
 ## Before you begin
 
-### 1. Complete the prerequisite labs
+### 1. Confirm the prerequisites
+
+Complete the Compartment, Network, and VM labs. Only `p01-vm-01` and `p01-vm-02` are load balancer backends; `p01-vm-03` remains reserved for the LLM gateway.
 
 Have the following resources available in **Germany Central (Frankfurt), `eu-frankfurt-1`**, or change the region consistently:
 
@@ -38,11 +39,21 @@ Have the following resources available in **Germany Central (Frankfurt), `eu-fra
 
 Use your existing private VM subnet if its display name differs. The Terraform code discovers backend addresses from each VM's primary VNIC and does not look up the VM subnet by name. It expects unique VM display names within the selected backend compartment. Keep backends in this VCN for this lab.
 
+### 2. Confirm permissions and capacity
+
 You need IAM access to create/manage load balancers, use the existing network, inspect VMs/VNIC attachments, read VNIC details, and edit the relevant subnet security lists. Ask your training administrator to confirm these permissions and available Load Balancer quota. The Terraform code does not create IAM policies.
 
 The flexible LB can scale to **100 Mbps** in this exercise; check your tenancy's applicable charges and quotas before deployment. Use HTTP only for this training exercise; configure TLS separately before serving sensitive application traffic.
 
-### 2. Prepare a web page on each VM
+### 3. Choose a deployment option
+
+Choose **Option A - OCI Console** or **Option B - Terraform**. Both options create the target configuration below. Use one option for each lab deployment; do not create the same resources with both options.
+
+Use your assigned attendee prefix in place of `p01`, consistently across all labs. Follow the workshop order: **Compartment → Network → VM → Load Balancer → PostgreSQL → OKE**.
+
+For Option B, follow the two authentication methods in [Prepare the environment and authentication](#2-prepare-the-environment-and-authentication). Keep attendee settings in `terraform.tfvars` and use a separate Terraform directory and state for each lab and attendee.
+
+### 4. Prepare the backend web servers
 
 If both servers already serve HTTP on port 80 with distinguishable pages, verify them and continue. Otherwise, connect to each VM using the administration access above and run the commands for its operating system. Package installation from a private subnet needs working outbound access, such as a NAT Gateway or an approved package mirror.
 
@@ -91,7 +102,7 @@ sudo ss -lntp | grep ':80 '
 
 Expect HTTP `200` and a socket bound to the VM's private address or all interfaces, rather than only `127.0.0.1`. Record each VM's primary private IP from **Compute → Instances → instance details → Attached VNICs → primary VNIC**. If both pages show the same hostname, edit their headings to `p01-vm-01` and `p01-vm-02` respectively.
 
-### 3. Manually configure security lists — required for both options
+### 5. Prepare network security
 
 1. Open **Networking → Virtual cloud networks → p01-vcn → Subnets**.
 2. Open `p01-subnet-public-lb`, then a security list attached to that subnet.
@@ -109,9 +120,11 @@ An existing egress rule allowing all traffic already covers the LB egress requir
 
 These CIDRs match the prerequisite network lab. Adjust them if you changed that lab. If you change listener, backend, or health-check ports in Terraform, update the corresponding security-list and host-firewall rules too. A different health-check port needs its own LB egress/backend ingress permission.
 
-**Terraform deliberately does not manage security lists or NSGs.** There is no invented `security_list_management` setting in this LB configuration. Make changes in the network lab's source configuration as well if those lists are already managed by another Terraform state, so its next apply does not remove your manual changes.
+**Terraform does not manage security lists or NSGs in this lab.** Make changes in the network lab's source configuration as well if those lists are already managed by another Terraform state, so its next apply does not remove your manual changes.
 
 ## Target configuration
+
+### Resource settings
 
 | Setting | Default | Terraform parameter in `terraform.tfvars` |
 | --- | --- | --- |
@@ -131,7 +144,7 @@ These CIDRs match the prerequisite network lab. Adjust them if you changed that 
 | Health timing | Interval `10000` ms, timeout `3000` ms, retries `3` | `health_check` object |
 | Listener | `p01-listener-http-80`, HTTP `80` | `listener` object |
 | Listener idle timeout | `60` seconds | `listener.idle_timeout_in_seconds` |
-| Security lists | Manually configured | Preparation step 3 above |
+| Security lists | Manually configured | Before you begin, step 5 |
 
 The default public IP is allocated by OCI. To use an existing reserved public IP, supply its OCID in `reserved_public_ip_id`. To make a private LB, set `is_private = true`, leave that ID null, select an appropriate subnet, and test from a client with VCN access. These changes may replace the LB; review the plan. This lab's listener supports plain HTTP; HTTPS requires additional certificate and SSL configuration.
 
@@ -141,7 +154,7 @@ The default public IP is allocated by OCI. To use an existing reserved public IP
 
 1. Sign in to the OCI Console and select the correct region and lab compartment.
 2. Open **Networking → Load balancers**. Use the Console search if the navigation label differs.
-3. Click **Create load balancer** and select the **Load Balancer** service if prompted. This lab uses Flexible Load Balancer, not Network Load Balancer.
+3. Select **Create load balancer** and select the **Load Balancer** service if prompted. This lab uses Flexible Load Balancer, not Network Load Balancer.
 
 ### 2. Configure the front end
 
@@ -158,17 +171,17 @@ The default public IP is allocated by OCI. To use an existing reserved public IP
 3. Add `p01-vm-01` and `p01-vm-02` from their compartment, each on port `80` with weight `1`. Confirm their addresses match the recorded primary private IPs.
 4. Health check: **HTTP**, port `80`, URL path `/`, expected status `200`.
 5. Set interval `10000` ms, timeout `3000` ms, and retries `3`, if shown in advanced settings. Keep backend SSL and session persistence disabled.
-6. Select **Manually configure security list rules** wherever the wizard prompts for security-rule management. The rules were configured in preparation step 3.
+6. Select **Manually configure security list rules** wherever the wizard prompts for security-rule management. The rules were configured in Before you begin, step 5.
 
 ### 4. Configure the listener and create
 
 1. Listener name: `p01-listener-http-80`; protocol: **HTTP**; port: `80`.
 2. Route to the backend set created above. Use a `60` second idle timeout if this setting is shown.
 3. For this basic lab, leave optional access/error logging disabled. You can enable it later for troubleshooting.
-4. Review the configuration and click **Create load balancer**.
+4. Review the configuration and select **Create load balancer**.
 5. Wait for **Active**, then record the public IP. Open **Backend sets → your backend set → Backends** and wait for both backends to report healthy/OK. If needed, use the backend set/listener edit pages to confirm settings the wizard did not expose.
 
-### 5. Test traffic distribution and recovery
+### 5. Verify deployment
 
 From your workstation or Cloud Shell, replace the placeholder and run:
 
@@ -185,10 +198,10 @@ Expect successful responses showing both VM identities. Do not use strict reques
 To test failure recovery, stop the web server on **one backend only**:
 
 ```bash
-# Oracle Linux:
-sudo systemctl stop httpd
-# Ubuntu: use sudo systemctl stop nginx instead.
+sudo systemctl stop nginx
 ```
+
+Use `httpd` instead of `nginx` if you deliberately chose Oracle Linux.
 
 Wait for its health status to become unhealthy, then rerun the requests. Responses should come from the remaining healthy VM. Requests during detection can fail. Restart the service (`sudo systemctl start httpd`, or `nginx` on Ubuntu), wait for healthy status, and verify both names return again.
 
@@ -196,69 +209,124 @@ Wait for its health status to become unhealthy, then rerun the requests. Respons
 
 ## Option B - Deployment steps for Terraform
 
-### 1. Prepare Terraform and OCI authentication
+Complete **Before you begin** first. This lab has one README for both deployment options. Run all Terraform commands from `LoadBalancer/terraform/` in your repository checkout.
 
-Complete **Before you begin**, including the manual security rules. Use a separate working directory/state for this lab; do not reuse the compartment, network, VM, or Console-created LB state.
+### 1. Review the Terraform files
 
-Install **Terraform 1.5 or newer, below 2.0**. The configuration accepts OCI provider `>= 7.0.0, < 9.0.0`. Run it on a workstation or Cloud Shell with an existing OCI API-key profile in `~/.oci/config`; `config_file_profile` selects that profile. Check its tenancy OCID, user OCID, fingerprint, signing-key path, and permissions. Keep the key outside the repository. Cloud Shell users must configure this profile for this example; the code does not automatically switch to another authentication method.
-
-Files in this lab:
+All paths in this table are relative to `LoadBalancer/terraform/`.
 
 | File | Purpose |
 | --- | --- |
-| `terraform/versions.tf` | Terraform and provider constraints |
-| `terraform/provider.tf` | OCI region and authentication profile |
-| `terraform/variables.tf` | Parameter types and validation |
-| `terraform/main.tf` | Existing-resource lookups and LB resources |
-| `terraform/outputs.tf` | LB address, URL, subnet CIDR, and resolved backends |
-| `terraform/terraform.tfvars.example` | All editable attendee parameters |
+| `versions.tf` | Defines the supported Terraform and OCI provider versions. |
+| `provider.tf` | Configures the OCI region and selected authentication method. |
+| `variables.tf` | Declares input parameters, types, and validation rules. |
+| `terraform.tfvars.example` | Provides the example lab settings; copy it to `terraform.tfvars`. |
+| `terraform.tfvars` | Contains your local attendee settings; created in step 3 and kept out of Git. |
+| `main.tf` | Looks up the existing network and backends, then creates the load balancer resources. |
+| `outputs.tf` | Reports the load balancer OCID, IPs, listener URL, and resolved backend addresses. |
+| `.terraform.lock.hcl` | Records the selected provider version and checksums; created or reused by `terraform init` and committed after review. |
 
-### 2. Set your parameters
+Keep normal lab changes in `terraform.tfvars`; use `variables.tf` to check accepted inputs. Provider version constraints stay in `versions.tf`.
 
-From the extracted `load-balancer` directory:
+### 2. Prepare the environment and authentication
+
+Use **Terraform 1.5 or later, below 2.0**, as required by `versions.tf`. The OCI provider constraint for this lab is `>= 7.0.0, < 9.0.0`. Terraform installs the provider during initialization. The command examples use Bash, available in OCI Cloud Shell and common Linux/macOS terminals. On Windows, use a compatible shell or adapt the shell syntax.
+
+Choose one of the following authentication methods. In this lab, `auth_method` is the input that sets the OCI provider's `auth` argument. Add the selected values to `terraform.tfvars` in step 3.
+
+#### Local machine (`auth = "APIKey"`)
+
+Install Terraform CLI and configure an OCI API-signing-key profile in `~/.oci/config`. The profile must contain `tenancy`, `user`, `fingerprint`, and `key_file`. Register the matching public key with your OCI user, and keep the private key outside the repository.
+
+```hcl
+auth_method         = "APIKey"
+config_file_profile = "DEFAULT"
+```
+
+Replace `DEFAULT` with your profile name if needed.
+
+#### OCI Cloud Shell (`auth = "InstancePrincipal"`)
+
+Open Cloud Shell from your signed-in OCI Console session. Terraform CLI is already installed; check its version with `terraform version`. Use Cloud Shell's existing authentication environment. You do not need to create an API-signing-key profile in `~/.oci/config` for this method.
+
+```hcl
+auth_method         = "InstancePrincipal"
+config_file_profile = "DEFAULT"
+```
+
+Keep `config_file_profile = "DEFAULT"` in the parameter file with the current repository code: `variables.tf` still requires this input, although the provider passes it as `null` and ignores it when `auth_method = "InstancePrincipal"`. This value does not require a local `DEFAULT` API-key profile in Cloud Shell. Do not omit it unless the variable declaration has also been made optional.
+
+Keep Cloud Shell's preconfigured authentication environment intact. The selected method must have the IAM permissions listed in **Before you begin**. Set `region` to the deployment region containing your lab network; normally `eu-frankfurt-1`.
+
+### 3. Configure the lab parameters
+
+From the repository root, open this lab's Terraform directory and create your local parameter file:
 
 ```bash
-cd terraform
+cd LoadBalancer/terraform
 cp terraform.tfvars.example terraform.tfvars
 ```
 
-Edit `terraform.tfvars`:
+If `terraform.tfvars` already exists, edit that file instead of overwriting it. Set the authentication values from step 2, then review the following lab inputs:
 
-1. Replace `compartment_id` with your lab compartment OCID.
-2. Confirm `region` and `config_file_profile`.
-3. Leave `network_compartment_id` and `backend_compartment_id` null if all resources share the lab compartment; otherwise supply their actual compartment OCIDs. The VCN and LB subnet must be in the same configured network compartment for this example.
-4. Confirm the VCN/subnet names and exact VM display names. Change the `p01` prefix consistently if your participant resources use a different prefix.
-5. Review bandwidth, backend ports/weights, health check, and listener parameters in this file. Keep the defaults to match Option A.
+| Parameter | What to enter or check |
+| --- | --- |
+| `region`, `compartment_id` | Existing network region and target load balancer compartment OCID. |
+| `network_compartment_id` | Network compartment OCID, or `null` to reuse `compartment_id`. |
+| `backend_compartment_id` | VM compartment OCID, or `null` to reuse `compartment_id`. |
+| `network` | Exact names of the VCN and public load balancer subnet. |
+| `load_balancer` | Name, public visibility, ephemeral IP (`reserved_public_ip_id = null`), and 10–100 Mbps bandwidth. |
+| `backend_set` | Name and `ROUND_ROBIN` policy. |
+| `backends` | VM 1 and VM 2 display names as keys, each with port 80 and weight 1. |
+| `health_check` | HTTP, port 80, `/`, expected status 200, and timing settings. |
+| `listener` | HTTP port 80, listener name, and 60-second idle timeout. |
 
-Values intentionally live in the parameter file, rather than being scattered through resource definitions. A VM must already be running when the plan is created. Multiple attached VNICs are supported; the primary VNIC supplies the backend private address. Existing-resource lookups reject missing or ambiguous names and handle null lists without calling `length(null)`.
+The VCN and LB subnet must be in the same configured network compartment. Backends must already be running. Terraform finds each backend's primary VNIC and uses its private IP, even when additional VNICs are attached. Names must identify exactly one resource in the selected scope.
 
-### 3. Initialize, validate, and inspect the plan
+Keep VM 3 out of the `backends` map. If you change listener, backend, or health-check ports, update the manual security-list and host-firewall rules in **Before you begin, step 5** as well.
+
+Terraform loads `terraform.tfvars` automatically; no `-var-file` argument is needed. Keep credentials, private keys, local parameter files, state, plans, and `.terraform/` out of Git. Check the applicable `.gitignore` rules; the repository does not provide complete Terraform exclusions for every lab. Commit the Terraform source, sanitized `terraform.tfvars.example`, and reviewed provider lock file.
+
+### 4. Initialize and validate
 
 ```bash
 terraform init
-terraform fmt -check
+terraform fmt -recursive
 terraform validate
-terraform plan -out=load-balancer.tfplan
 ```
 
-Expect **5 resources to add** with the default two backends: one LB, one backend set, two backend entries, and one listener. Existing networks and VMs appear as data-source reads. There should be no changes to them or to security lists. Do not proceed if the selected subnet or backend IPs are wrong. Retain/commit `.terraform.lock.hcl` after initialization to pin the provider used by your training repository.
+`init` installs the provider and creates or reuses `.terraform.lock.hcl`. `fmt` normalizes formatting; it does not change the intended infrastructure. `validate` checks configuration syntax and provider schema. Resolve errors before continuing. Retain the reviewed lock file for repeatable workshop runs; test provider upgrades before changing it.
 
-**Package validation:** Formatting and provider installation were checked with Terraform `1.9.8` and OCI provider `8.29.0`. Provider schema validation was blocked by the build environment's restriction on provider communication sockets. Run the validation and plan commands above in your own environment before deploying. No live OCI plan or deployment was performed while preparing this package.
-
-### 4. Deploy and inspect outputs
+### 5. Review the execution plan
 
 ```bash
-terraform apply load-balancer.tfplan
+terraform plan -out=lab.tfplan
+terraform show lab.tfplan
+```
+
+For a new deployment with two backends, expect **5 to add, 0 to change, 0 to destroy**: one load balancer, one backend set, two backend registrations, and one listener. Verify the selected subnet, resolved backend IPs, listener, health check, and bandwidth settings. The existing VCN, subnets, VMs, and security lists must not change.
+
+Review the complete plan before applying. Stop if it includes unexpected changes or deletions. If you edit parameters after saving the plan, create and review a new plan.
+
+### 6. Apply the reviewed plan
+
+```bash
+terraform apply lab.tfplan
 terraform output
+```
+
+Applying a saved plan executes its reviewed changes without a second approval prompt. Wait for completion and keep the Terraform state for later updates and cleanup. If an apply only partially succeeds, retain the state, resolve the error, and create a fresh plan.
+
+### 7. Verify deployment
+
+```bash
 terraform output backend_endpoints
 terraform output -raw listener_url
 ```
 
-The public ephemeral address is requested by creating a public LB without a `reserved_ips` block. Terraform creates the LB configuration; it does not install web servers or verify their HTTP health. Check both backend health statuses in the Console after deployment.
+Confirm the load balancer is **Active** and both backends are healthy in the OCI Console. Terraform configures the LB; it does not install or verify the web servers.
 
-### 5. Test
-
-Run from the Terraform directory:
+From this Terraform directory, test the listener:
 
 ```bash
 LB_URL="$(terraform output -raw listener_url)"
@@ -268,16 +336,37 @@ for i in $(seq 1 20); do
 done
 ```
 
-Complete the same failure/recovery exercise and success criteria in **Option A, step 5**. Edit `terraform.tfvars` and create a new plan for subsequent changes. Recreate the saved plan after changing parameters or discovering that a backend VM address changed.
+Complete the failure/recovery exercise in [Option A, step 5](#5-verify-deployment).
+
+**Success criteria:** The LB is Active, both backends are healthy after recovery, and requests to its public URL return pages from both VMs.
+
+### 8. Update the configuration
+
+Edit `terraform.tfvars` for routine changes, then repeat steps 4–7 with the same working directory and state. Generate a new plan each time. Avoid editing Terraform-managed resources directly in the Console, and never manage the same resource from two Terraform states.
+
+Replan if a backend VM address changes, and keep security-list and host-firewall rules aligned with any port changes.
 
 ## Troubleshooting
 
-| Symptom | What to check / do |
+### Authentication and Terraform
+
+| Symptom | What to check |
+| --- | --- |
+| APIKey authentication fails | Check the selected profile in `~/.oci/config`, tenancy/user OCIDs, fingerprint, key path, and registered public key. |
+| Cloud Shell tries to open `~/.oci/config` | Select `InstancePrincipal` with this lab's authentication input. Confirm the current provider passes `config_file_profile = null` for this mode, and remove any custom profile override that forces local API-key lookup. Keep Cloud Shell's managed authentication environment. |
+| Terraform prompts for `config_file_profile` in Cloud Shell | Keep `config_file_profile = "DEFAULT"` in `terraform.tfvars`; the current variable declaration requires a value even though the provider ignores it in this mode. |
+| Cloud Shell session authentication fails | Start a fresh signed-in Cloud Shell session and retry with its preconfigured environment. Check IAM permissions if authentication succeeds but requests are denied. |
+| Unexpected parameter prompt or undeclared-variable warning | Run commands from this lab's `terraform/` directory and use the exact input names declared in its `variables.tf`. |
+| `terraform validate` fails | Check the reported file/line and provider version. Initialize the directory first; use the reviewed `.terraform.lock.hcl`. |
+| Apply only partially succeeds | Keep state, resolve the reported error, then create and review a fresh plan before applying. |
+
+### Lab-specific issues
+
+| Symptom | What to check |
 | --- | --- |
 | No VCN, subnet, or VM match | Confirm region, exact display name, resource state, compartment OCIDs, and IAM access. Lookups do not search child compartments automatically. |
 | More than one matching resource | Give lab resources unique display names within the lookup scope, then update the parameter file. |
-| `NotAuthorizedOrNotFound` / 404 | Verify profile tenancy/user, selected region, OCIDs, and permissions across LB, network, and backend compartments. |
-| Authentication or signing-key error | Check `~/.oci/config`, profile name, key path, fingerprint, and API key registration. |
+| `NotAuthorizedOrNotFound` / 404 | Verify the selected OCI identity, region, OCIDs, and permissions across LB, network, and backend compartments. |
 | Public LB cannot be created in subnet | Confirm the LB subnet is regional, allows public IPs, and has enough available addresses. This lab uses one regional public subnet; an AD-specific public LB requires two subnets in different ADs. |
 | Quota / bandwidth error | Confirm available LB quota and supported bandwidth in the selected region. Use whole Mbps, with minimum no greater than maximum. |
 | LB is Active but all backends unhealthy | Confirm server processes, private IPs, port 80 bindings, LB egress, VM ingress, and host firewalls. From a client allowed by your security rules, test each backend's private address directly. |
@@ -286,28 +375,40 @@ Complete the same failure/recovery exercise and success criteria in **Option A, 
 | HTTP 502/504 or intermittent errors | Check backend health, response times, listener/backend ports, and application logs. Enable LB error logs if needed. |
 | Only one backend page appears | Confirm both backends are healthy with equal weights, pages differ, and no persistence is enabled. Use the curl loop to avoid browser caching effects. |
 | Rules disappear after the network lab is applied | Add the intended rules to that lab's Terraform configuration; its state may own the security list. |
-| Another operation is already in progress | Wait for the LB work request to finish and retry. If concurrent LB operations repeatedly conflict, use `terraform apply -parallelism=1` after reviewing a fresh plan. |
+| Another operation is already in progress | Wait for the LB work request to finish and retry. If concurrent LB operations repeatedly conflict, create and review a fresh `lab.tfplan`, then use `terraform apply -parallelism=1 lab.tfplan`. |
 
 Inspect the LB's **Work requests**, backend health details, and web-server logs when troubleshooting. Changes to security rules and servers can take time to appear in health status.
 
 ## Optional cleanup
 
-### If you used the Console
+Remove this load balancer when its traffic-distribution exercise is complete and no application still needs it. Use the same deployment option that created each resource.
 
-Delete `p01-lb-01` from the Load Balancer page and confirm deletion. Its listeners, backend set, backend registrations, and ephemeral public IP are removed with it. Backend VMs and the network remain available for other labs.
+### Option A - OCI Console
 
-### If you used Terraform
+1. Open the Load Balancer page and select `p01-lb-01`.
+2. Delete the load balancer and wait for deletion to finish. Its listener, backend set, backend registrations, and ephemeral public IP are removed with it.
+3. Keep the existing backend VMs and network if other labs still use them.
 
-From this lab's `terraform` directory, with the same state and parameters:
+### Option B - Terraform
+
+From `LoadBalancer/terraform/`, use the original state and parameter file. Create a cleanup plan:
 
 ```bash
-terraform plan -destroy -out=destroy.tfplan
-terraform apply destroy.tfplan
+terraform plan -destroy -out=cleanup.tfplan
+terraform show cleanup.tfplan
 ```
 
-Inspect the destroy plan before applying it. The default configuration removes the five lab resources; data sources do not delete the existing VCN, subnet, or VMs. An externally created reserved public IP, if you selected one, is not managed/deleted by this configuration.
+Confirm the plan removes only the five default LB resources. The existing VCN, subnet, and VMs are read through data sources and are not deleted. An externally created reserved public IP is not owned by this configuration.
 
-For either deployment option, remove only the manual security-list/host-firewall rules added exclusively for this lab when they are no longer needed. If you installed a web server solely for this exercise, stop/disable it or restore the VM's prior configuration. Retain Terraform state securely until cleanup finishes; never commit state or saved plans to GitHub.
+After reviewing the plan, apply it:
+
+```bash
+terraform apply cleanup.tfplan
+```
+
+For either deployment option, remove only security-list and host-firewall rules added exclusively for this lab when no longer needed. Reconcile any Terraform-managed rules through the owning Network lab. If you installed a web server only for this exercise, stop/disable it or restore its previous configuration.
+
+Keep Terraform state until cleanup is confirmed. Delete shared network resources and the compartment only after all dependent labs are finished.
 
 ## Oracle documentation references
 
@@ -321,3 +422,6 @@ For either deployment option, remove only the manual security-list/host-firewall
 - [OCI provider: backend](https://docs.oracle.com/en-us/iaas/tools/terraform-provider-oci/latest/docs/r/load_balancer_backend.html)
 - [OCI provider: listener](https://docs.oracle.com/en-us/iaas/tools/terraform-provider-oci/latest/docs/r/load_balancer_listener.html)
 - [OCI provider: configuration and authentication](https://docs.oracle.com/en-us/iaas/Content/terraform/configuring.htm)
+- [OCI Terraform provider configuration and authentication](https://docs.oracle.com/en-us/iaas/Content/dev/terraform/configuring.htm)
+- [Using OCI Cloud Shell](https://docs.oracle.com/en-us/iaas/Content/API/Concepts/devcloudshellgettingstarted.htm)
+- [OCI SDK and CLI configuration file](https://docs.oracle.com/en-us/iaas/Content/API/Concepts/sdkconfig.htm)

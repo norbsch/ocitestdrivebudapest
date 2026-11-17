@@ -1,8 +1,8 @@
-# OCI Kubernetes Engine (OKE) Hands-on Lab
+# OKE Hands-on Lab
 
 **Project:** OCITestDriveBudapest
 
-## Goal / Estimated Time for the Hands-on Lab
+## Goal / Estimated time
 
 Create an OKE cluster in the existing `p01-vcn` with a public Kubernetes API endpoint and three private managed worker nodes. Use either the OCI Console or Terraform, then connect with `kubectl` and verify that all workers are ready.
 
@@ -10,6 +10,7 @@ Create an OKE cluster in the existing `p01-vcn` with a public Kubernetes API end
 
 ## Contents
 
+- [Goal / Estimated time](#goal--estimated-time)
 - [Before you begin](#before-you-begin)
 - [Target configuration](#target-configuration)
 - [Option A - Deployment steps for OCI Console](#option-a---deployment-steps-for-oci-console)
@@ -18,26 +19,34 @@ Create an OKE cluster in the existing `p01-vcn` with a public Kubernetes API end
 - [Optional cleanup](#optional-cleanup)
 - [Oracle documentation references](#oracle-documentation-references)
 
-Choose one deployment option per cluster. Do not deploy both options with the same names.
-
 ## Before you begin
 
-1. Sign in to OCI and select **Germany Central (Frankfurt)** (`eu-frankfurt-1`).
-2. Complete the compartment and network labs. Record the resource compartment OCID and network compartment OCID (they may be identical).
-3. Have permissions to manage OKE clusters/node pools, compute instances, VNICs, volumes and NSGs, and to use the existing VCN/subnets and gateways. Ask the instructor to verify IAM using Oracle's OKE policy reference below. Cluster access also requires OCI authentication and Kubernetes authorization.
-4. Check available quotas/capacity for **6 E5 OCPUs, 24 GB RAM and three worker boot volumes** in AD-3. The availability domain prefix `sgUC` is tenancy-specific; replace it when needed.
-5. Verify that `p01-subnet-public-lb` is regional and public, and `p01-subnet-private-vm` is private and regional (or AD-3-specific). Leave sufficient free IP addresses for the endpoint, nodes and future load balancers.
-6. Check network routing and DNS:
-   - Public subnet: `0.0.0.0/0` to an Internet Gateway.
-   - Private workers: `0.0.0.0/0` to a NAT Gateway for image pulls and other internet access.
-   - Private workers: the regional **All <region> Services in Oracle Services Network** service CIDR to a Service Gateway. The gateway must support that service label.
-   - VCN DNS resolution enabled, using Internet and VCN Resolver DHCP options.
-7. Identify the public IPv4 egress address used by your laptop/VPN and record it as a `/32` CIDR. Use the address seen by OCI after NAT/VPN, not your laptop's private address.
-8. For command-line steps, install/configure OCI CLI and `kubectl` compatible with the selected server version. For Terraform, install Terraform 1.5 or later (below 2.0), and configure OCI API key authentication in `~/.oci/config`. Never commit a private key, credentials, kubeconfig or Terraform state.
+### 1. Confirm the prerequisites
 
-### Confirm versions and images first
+1. Complete the Compartment and Network labs. Record the resource compartment OCID and network compartment OCID; they may be identical.
+2. Sign in to the OCI Console and select **Germany Central (Frankfurt)** (`eu-frankfurt-1`), matching your existing network.
+3. Verify that `p01-subnet-public-lb` is public and regional, and `p01-subnet-private-vm` is private and regional (or AD-3-specific). Leave sufficient unused IP addresses for the API endpoint, workers, and future load balancers.
+4. Check the existing routes: the public subnet needs an Internet Gateway default route; private workers need a NAT Gateway default route and a Service Gateway route for the regional **All <region> Services in Oracle Services Network** service CIDR. Enable VCN DNS resolution using Internet and VCN Resolver DHCP options.
+5. Identify the public IPv4 egress CIDR of the terminal that will run `kubectl`, such as your laptop/VPN or Cloud Shell. Use the address seen by OCI after NAT/VPN. A laptop `/32` does not also permit Cloud Shell.
+6. Have OCI CLI and `kubectl` compatible with the selected server version. Use your configured local OCI CLI profile or Cloud Shell's existing CLI session. Keep private keys, credentials, kubeconfig, and Terraform state out of Git.
 
-The requested default is **`v1.37`**. Oracle's supported-version page currently lists **1.37.0 as preview**, while its OL8 worker image catalog also lists **1.37.1** builds. These published sources do not establish which combination your region currently offers. Query OKE in your tenancy before provisioning. This lab preserves your requested minor version and image build; it does not silently select a different version/date. A minor version selects the patch offered by OKE, so record the actual patch after deployment.
+### 2. Confirm permissions and capacity
+
+Confirm permissions to manage OKE clusters/node pools, compute instances, VNICs, volumes, and NSGs, and to use the existing VCN/subnets and gateways. Ask the instructor to verify IAM using Oracle's OKE policy reference. Cluster access also requires Kubernetes authorization.
+
+Check E5 capacity and limits for **6 OCPUs, 24 GB RAM, and three worker boot volumes** in AD3. The AD prefix `sgUC` is tenancy-specific; copy the full AD name from your tenancy. Review applicable compute and storage charges.
+
+### 3. Choose a deployment option
+
+Choose **Option A - OCI Console** or **Option B - Terraform**. Both options create the target configuration below. Use one option for each lab deployment; do not create the same resources with both options.
+
+Use your assigned attendee prefix in place of `p01`, consistently across all labs. Follow the workshop order: **Compartment → Network → VM → Load Balancer → PostgreSQL → OKE**.
+
+For Option B, follow the two authentication methods in [Prepare the environment and authentication](#2-prepare-the-environment-and-authentication). Keep attendee settings in `terraform.tfvars` and use a separate Terraform directory and state for each lab and attendee.
+
+### 4. Confirm available versions and images
+
+The requested default is **`v1.37`**, with an Oracle Linux 8 OKE worker image using build **`2026.10.16-0`**. Confirm that OKE offers this version and image combination in your tenancy and region before provisioning. A minor version selects the patch offered by OKE; record the actual patch after deployment.
 
 Run in OCI Cloud Shell or your configured terminal (set your own OCID):
 
@@ -59,11 +68,13 @@ oci iam availability-domain list --compartment-id "$LAB_COMPARTMENT_OCID" \
 
 Inspect `kubernetes-versions`, `shapes` and `sources` in the node pool response. If your installed CLI does not recognize the version filter, update it or omit that flag and inspect the returned sources. To inspect exact patches, repeat the cluster-options command with `--should-list-all-patch-versions true`.
 
-Look for a **standard x86 Oracle Linux 8 OKE worker image** containing build **`2026.10.16-0`** and the selected Kubernetes version. Exclude `aarch64` and GPU images for this E5 CPU shape. The catalog lists `Oracle-Linux-8.10-2026.10.16-0-OKE-1.37.1-2067`; treat it as a candidate, not proof of regional availability. Record the exact image name and regional OCID from OKE's response. The date is part of the underlying image build name; it is not necessarily the OKE image publication date.
+Look for a **standard x86 Oracle Linux 8 OKE worker image** containing build **`2026.10.16-0`** and the selected Kubernetes version. Exclude `aarch64` and GPU images for this E5 CPU shape. Record the exact image name and regional OCID from OKE's response. The date is part of the underlying image build name; it is not necessarily the OKE image publication date.
 
 If the requested combination is unavailable, stop and agree on an available version/image combination with the instructor, then update the Console choices or parameter file. Preview versions are for testing and have limited support.
 
 ## Target configuration
+
+### Resource settings
 
 | Setting | Default |
 | --- | --- |
@@ -165,7 +176,7 @@ No load balancer ingress or NodePort rules are needed for this lab's readiness c
 3. On the cluster page select **Access cluster**, choose **Local access**, and follow the displayed command to generate kubeconfig for the **public endpoint**. Use a separate kubeconfig file to preserve your existing contexts.
 4. Run the checks in the following section.
 
-### 6. Connect and check readiness (either deployment option)
+### 6. Verify deployment
 
 For a local terminal, replace the cluster OCID below with the actual value. OCI Cloud Shell can also be used, but its egress must be allowed by the API NSG, or it must have a suitable private network path. Do not assume that your laptop's `/32` also permits Cloud Shell.
 
@@ -185,77 +196,159 @@ kubectl get pods -n kube-system
 
 ## Option B - Deployment steps for Terraform
 
-### 1. Review the files
+Complete **Before you begin** first. This lab has one README for both deployment options. Run all Terraform commands from `OKE/terraform/` in your repository checkout.
 
-```text
-oke-lab/
-  README.md
-  terraform/
-    versions.tf
-    variables.tf
-    terraform.tfvars.example
-    main.tf
-    network.tf
-    outputs.tf
-    .gitignore
-    .terraform.lock.hcl
+### 1. Review the Terraform files
+
+All paths in this table are relative to `OKE/terraform/`.
+
+| File | Purpose |
+| --- | --- |
+| `versions.tf` | Defines the supported Terraform and OCI provider versions. Also configures the OCI region and selected authentication method. |
+| `variables.tf` | Declares input parameters, types, and validation rules. |
+| `terraform.tfvars.example` | Provides the example lab settings; copy it to `terraform.tfvars`. |
+| `terraform.tfvars` | Contains your local attendee settings; created in step 3 and kept out of Git. |
+| `main.tf` | Looks up the existing network and available OKE options, then creates the cluster and node pool. |
+| `network.tf` | Creates the API and worker NSGs and their security rules. |
+| `outputs.tf` | Reports cluster/node pool OCIDs, API endpoints, NSG OCIDs, the image, and a kubeconfig command. |
+| `.terraform.lock.hcl` | Records the selected provider version and checksums; created or reused by `terraform init` and committed after review. |
+
+OKE keeps its provider block in `versions.tf`; it has no separate `provider.tf`.
+
+Keep normal lab changes in `terraform.tfvars`; use `variables.tf` to check accepted inputs. Provider version constraints stay in `versions.tf`.
+
+### 2. Prepare the environment and authentication
+
+Use **Terraform 1.5 or later, below 2.0**, as required by `versions.tf`. The OCI provider constraint for this lab is `>= 7.0.0, < 9.0.0`. Terraform installs the provider during initialization. The command examples use Bash, available in OCI Cloud Shell and common Linux/macOS terminals. On Windows, use a compatible shell or adapt the shell syntax.
+
+Choose one of the following authentication methods. In this lab, `auth_method` is the input that sets the OCI provider's `auth` argument. Add the selected values to `terraform.tfvars` in step 3.
+
+#### Local machine (`auth = "APIKey"`)
+
+Install Terraform CLI and configure an OCI API-signing-key profile in `~/.oci/config`. The profile must contain `tenancy`, `user`, `fingerprint`, and `key_file`. Register the matching public key with your OCI user, and keep the private key outside the repository.
+
+```hcl
+auth_method         = "APIKey"
+config_file_profile = "DEFAULT"
 ```
 
-There is one README for this lab. `terraform.tfvars` is the participant parameter file; do not edit resource blocks to change normal lab settings. The CNI parameter intentionally accepts only Flannel because VCN-native networking needs additional resources.
+Replace `DEFAULT` with your profile name if needed.
 
-Terraform creates the cluster, managed node pool, two NSGs and their rules. VCNs/subnets are looked up by exact display name within the network compartment and region. Missing, ambiguous or null lookup results receive explicit checks. The existing VCN, subnets, routing, gateways and security lists remain managed by the network lab.
+#### OCI Cloud Shell (`auth = "InstancePrincipal"`)
 
-### 2. Configure parameters and authentication
+Open Cloud Shell from your signed-in OCI Console session. Terraform CLI is already installed; check its version with `terraform version`. Use Cloud Shell's existing authentication environment. You do not need to create an API-signing-key profile in `~/.oci/config` for this method.
+
+```hcl
+auth_method         = "InstancePrincipal"
+config_file_profile = "DEFAULT"
+```
+
+Keep `config_file_profile = "DEFAULT"` in the parameter file with the current repository code: `variables.tf` still requires this input, although the provider passes it as `null` and ignores it when `auth_method = "InstancePrincipal"`. This value does not require a local `DEFAULT` API-key profile in Cloud Shell. Do not omit it unless the variable declaration has also been made optional.
+
+Keep Cloud Shell's preconfigured authentication environment intact. The selected method must have the IAM permissions listed in **Before you begin**. Set `region` to the deployment region containing your lab network; normally `eu-frankfurt-1`.
+
+### 3. Configure the lab parameters
+
+From the repository root, open this lab's Terraform directory and create your local parameter file:
 
 ```bash
-cd oke-lab/terraform
+cd OKE/terraform
 cp terraform.tfvars.example terraform.tfvars
 ```
 
-Edit `terraform.tfvars`:
+If `terraform.tfvars` already exists, edit that file instead of overwriting it. Set the authentication values from step 2, then review the following lab inputs:
 
-1. Replace `compartment_id` and `network_compartment_id` with real OCIDs. This lab expects the VCN and all three subnet roles in the network compartment specified.
-2. Set `api_allowed_cidrs = ["YOUR_ACTUAL_PUBLIC_IPV4/32"]` to your actual egress CIDR. The initial empty value intentionally blocks planning until filled.
-3. Keep or change the requested defaults. `config_file_profile` selects your local OCI API key profile; credentials stay in the OCI configuration/key files, outside this package.
-4. Confirm the AD name, version and image using the preflight commands. For a named profile, add `--profile PROFILE_NAME` to CLI commands too.
-5. Leave `node_image_id = ""` for strict image discovery. Exactly one source must match the build regex and selected Kubernetes version. If multiple sources match, set `node_image_id` to the exact compatible regional OCID. An explicit OCID overrides the name/date regex but must still appear in OKE's sources and match the selected version; you are responsible for checking OL8, architecture and shape compatibility.
-6. If changing region/shape, also update AD, network names, image selector/OCID and resource sizing. `node_shape_config` is intended for flexible shapes.
+| Parameter | What to enter or check |
+| --- | --- |
+| `region`, `compartment_id`, `network_compartment_id` | Existing network region and both compartment OCIDs; use the same OCID if shared. |
+| `vcn_name`, `api_subnet_name`, `lb_subnet_name`, `worker_subnet_name` | Exact existing VCN/subnet names from the target configuration. |
+| `cluster_name`, `cluster_type`, `node_pool_name` | Attendee names and `BASIC_CLUSTER`. |
+| `kubernetes_version`, `cni_type` | Offered version matching the requested `v1.37` and `FLANNEL_OVERLAY`. |
+| `api_public_ip_enabled`, `api_allowed_cidrs` | Public endpoint enabled and actual client egress CIDR(s), such as `["YOUR_ACTUAL_PUBLIC_IPV4/32"]`. |
+| `pods_cidr`, `services_cidr` | `10.244.0.0/16` and `10.96.0.0/16`; no overlap with each other or connected networks. |
+| `availability_domain` | Your tenancy's full AD3 name. |
+| `node_shape`, `node_ocpus`, `node_memory_gbs`, `node_count` | E5 flexible shape, 2 OCPUs, 8 GB per worker, and three workers. |
+| `node_image_name_regex`, `node_image_id` | Verified OL8 OKE image build selector, or an exact compatible regional image OCID. |
+| `disable_legacy_imds`, `freeform_tags` | Keep IMDSv1 disabled (`true`) and review tags. |
 
-### 3. Initialize and inspect the plan
+The initial empty `api_allowed_cidrs` deliberately blocks planning. Replace it with the egress CIDR(s) of the terminal that will run `kubectl`. The VCN and all subnet roles must be in `network_compartment_id`.
+
+Complete the version/image preflight in **Before you begin, step 4**. Leave `node_image_id = ""` for strict discovery: exactly one OKE source must match the build regex and selected version. If several match, set the exact compatible regional OCID. An explicit OCID overrides the build regex but must still appear in OKE's sources and match the selected version; verify Oracle Linux 8, x86 architecture, and shape compatibility yourself.
+
+If changing region or shape, also review the AD, network names, image selector, and sizing. The configuration accepts only Flannel; VCN-native networking requires a different network design.
+
+Terraform loads `terraform.tfvars` automatically; no `-var-file` argument is needed. Keep credentials, private keys, local parameter files, state, plans, and `.terraform/` out of Git. Check the applicable `.gitignore` rules; the repository does not provide complete Terraform exclusions for every lab. Commit the Terraform source, sanitized `terraform.tfvars.example`, and reviewed provider lock file.
+
+### 4. Initialize and validate
 
 ```bash
 terraform init
-terraform fmt -check
+terraform fmt -recursive
 terraform validate
-terraform plan -out=oke.tfplan
 ```
 
-The included `.terraform.lock.hcl` records OCI provider 8.29.0. Commit it with the lab; initialization reuses the locked provider. The provider range is intentionally bounded; test upgrades before updating the lock file for a training cohort. Keep the plan file private.
+`init` installs the provider and creates or reuses `.terraform.lock.hcl`. `fmt` normalizes formatting; it does not change the intended infrastructure. `validate` checks configuration syntax and provider schema. Resolve errors before continuing. Retain the reviewed lock file for repeatable workshop runs; test provider upgrades before changing it.
 
-Confirm that the plan creates one cluster, one pool of three nodes, and NSGs/rules. It must not replace the existing network or deploy a standalone load balancer. Image/version checks may stop planning if OKE does not offer the requested combination. A plan does not reserve E5 capacity or prove connectivity.
-
-### 4. Deploy
+### 5. Review the execution plan
 
 ```bash
-terraform apply oke.tfplan
+terraform plan -out=lab.tfplan
+terraform show lab.tfplan
+```
+
+Confirm the plan creates one cluster, one managed node pool containing three workers, two NSGs, and their rules. With one unique client CIDR, expect **13 to add, 0 to change, 0 to destroy**; each additional unique client CIDR adds one API ingress rule. The three workers are managed through the node pool, not as three separate Terraform instance resources.
+
+Verify Flannel, the version/image, worker AD/subnet, per-node resources, public API setting, and allowed client CIDRs. Existing VCNs, subnets, routes, and security lists must not change. Selecting a Service load balancer subnet does not deploy a load balancer. A successful plan does not reserve E5 capacity or prove network connectivity.
+
+Review the complete plan before applying. Stop if it includes unexpected changes or deletions. If you edit parameters after saving the plan, create and review a new plan.
+
+### 6. Apply the reviewed plan
+
+```bash
+terraform apply lab.tfplan
 terraform output
 ```
 
-Allow provisioning to finish. If you change the parameters after saving a plan, generate a new plan before applying. Do not run these commands against another lab's state directory.
+Applying a saved plan executes its reviewed changes without a second approval prompt. Wait for completion and keep the Terraform state for later updates and cleanup. If an apply only partially succeeds, retain the state, resolve the error, and create a fresh plan.
 
-### 5. Access and verify
+### 7. Verify deployment
 
 ```bash
+terraform output -raw cluster_id
+terraform output -raw node_pool_id
+terraform output selected_worker_image
 terraform output -raw kubeconfig_command
 ```
 
-Copy and run the printed command. It writes `./kubeconfig-p01-oke` and uses the configured region/profile. Then run the readiness checks from Option A, step 6. If you set `api_public_ip_enabled = false`, the command selects the private endpoint and your terminal must have a routed private connection to the VCN.
+The current `kubeconfig_command` output always appends `--profile` using `config_file_profile`. On a local machine using APIKey, run it with your configured profile. In Cloud Shell, remove that trailing `--profile` option so OCI CLI uses Cloud Shell's existing session profile and authentication environment. Terraform authentication and OCI CLI authentication are separate settings.
 
-Changing a node image or metadata affects new workers; do not assume an existing pool's nodes are automatically rebuilt. Use a replacement pool and controlled drain for later changes.
+Run the resulting command to create the separate lab kubeconfig, then complete [Option A, step 6](#6-verify-deployment). If `api_public_ip_enabled = false`, the output selects the private endpoint; your terminal must have a routed private connection to the VCN.
+
+**Success criteria:** The cluster and pool are Active; exactly three workers are Ready; core system pods are running or successfully completed; worker placement, image, shape, and private IPs match the target configuration.
+
+### 8. Update the configuration
+
+Edit `terraform.tfvars` for routine changes, then repeat steps 4–7 with the same working directory and state. Generate a new plan each time. Avoid editing Terraform-managed resources directly in the Console, and never manage the same resource from two Terraform states.
+
+Changing the node image or metadata affects newly launched workers. Use a replacement pool and a controlled workload drain when existing workers must be replaced.
 
 ## Troubleshooting
 
-| Symptom | What to check / change |
+### Authentication and Terraform
+
+| Symptom | What to check |
+| --- | --- |
+| APIKey authentication fails | Check the selected profile in `~/.oci/config`, tenancy/user OCIDs, fingerprint, key path, and registered public key. |
+| Cloud Shell tries to open `~/.oci/config` | Select `InstancePrincipal` with this lab's authentication input. Confirm the current provider passes `config_file_profile = null` for this mode, and remove any custom profile override that forces local API-key lookup. Keep Cloud Shell's managed authentication environment. |
+| Terraform prompts for `config_file_profile` in Cloud Shell | Keep `config_file_profile = "DEFAULT"` in `terraform.tfvars`; the current variable declaration requires a value even though the provider ignores it in this mode. |
+| Cloud Shell session authentication fails | Start a fresh signed-in Cloud Shell session and retry with its preconfigured environment. Check IAM permissions if authentication succeeds but requests are denied. |
+| Unexpected parameter prompt or undeclared-variable warning | Run commands from this lab's `terraform/` directory and use the exact input names declared in its `variables.tf`. |
+| `terraform validate` fails | Check the reported file/line and provider version. Initialize the directory first; use the reviewed `.terraform.lock.hcl`. |
+| Apply only partially succeeds | Keep state, resolve the reported error, then create and review a fresh plan before applying. |
+
+### Lab-specific issues
+
+| Symptom | What to check |
 | --- | --- |
 | Version unavailable / HTTP 400 | Query cluster and node-pool options in Frankfurt. Minor and exact patch lists differ. Set `kubernetes_version` to an offered value; do not assume a catalog image means its control plane version is offered. |
 | No compatible image / multiple images | Inspect OKE `sources`. Verify build date, version and x86 architecture. Pin a verified regional `node_image_id`, or change the date regex/version after instructor agreement. No fallback is automatic. |
@@ -272,18 +365,35 @@ Changing a node image or metadata affects new workers; do not assume an existing
 
 ## Optional cleanup
 
-Delete Kubernetes workloads and Services first, particularly `LoadBalancer` Services and PVCs. Wait for their cloud resources to be removed, and check retained volumes separately.
+Delete Kubernetes workloads and their service-created resources before removing the cluster and workers. Use the same deployment option that created each resource.
 
-**Console deployment:** delete the managed node pool and wait for worker termination, delete the cluster, then delete the two lab NSGs once detached. Inspect remaining boot/block volumes and load balancers. Keep shared network resources for other labs.
+### Option A - OCI Console
 
-**Terraform deployment**, from this lab's `terraform` directory:
+1. Delete Kubernetes workloads first, especially `LoadBalancer` Services and PVCs. Wait for their cloud resources to be removed, and review retained volumes separately.
+2. Delete the managed node pool and wait for worker termination.
+3. Delete the cluster.
+4. Delete both lab NSGs after they are detached. Inspect remaining volumes and load balancers; retain shared network resources.
+
+### Option B - Terraform
+
+From `OKE/terraform/`, use the original state and parameter file. Create a cleanup plan:
 
 ```bash
-terraform plan -destroy -out=destroy.tfplan
-terraform apply destroy.tfplan
+terraform plan -destroy -out=cleanup.tfplan
+terraform show cleanup.tfplan
 ```
 
-Review the destroy plan before applying. Terraform removes resources in this lab's state; it does not own the reused network. Remove any service-created load balancers first because their VNICs or attachments can block cleanup. After successful cleanup, remove the lab kubeconfig and unset `KUBECONFIG` if you set it for this session. Preserve state until you confirm cleanup is complete.
+Confirm the plan removes only the cluster, managed node pool, NSGs, and rules in this lab's state. Delete Kubernetes-created load balancers and volumes first; their attachments can block cleanup. The existing network belongs to the Network lab.
+
+After reviewing the plan, apply it:
+
+```bash
+terraform apply cleanup.tfplan
+```
+
+After confirming cleanup, remove the lab kubeconfig and unset `KUBECONFIG` if you set it for this session. Check retained volumes and service-created resources separately.
+
+Keep Terraform state until cleanup is confirmed. Delete shared network resources and the compartment only after all dependent labs are finished.
 
 ## Oracle documentation references
 
@@ -299,5 +409,6 @@ Review the destroy plan before applying. Terraform removes resources in this lab
 - [Terraform: OKE cluster](https://docs.oracle.com/en-us/iaas/tools/terraform-provider-oci/latest/docs/r/containerengine_cluster.html)
 - [Terraform: managed node pool](https://docs.oracle.com/en-us/iaas/tools/terraform-provider-oci/latest/docs/r/containerengine_node_pool.html)
 - [Terraform: node pool options](https://docs.oracle.com/en-us/iaas/tools/terraform-provider-oci/latest/docs/d/containerengine_node_pool_option.html)
-
-Documentation reviewed: 17 November 2026. Regional OKE API options are the deployment-time check for versions and images. Verification: `terraform fmt -check` passed and `terraform init -backend=false` installed OCI provider 8.29.0 with verified signature. Full `terraform validate` could not run in the authoring environment because the sandbox blocks the provider plugin Unix socket. Run `terraform validate` and `terraform plan` in your own environment before deployment. This package has not been deployed into a tenancy by its author.
+- [OCI Terraform provider configuration and authentication](https://docs.oracle.com/en-us/iaas/Content/dev/terraform/configuring.htm)
+- [Using OCI Cloud Shell](https://docs.oracle.com/en-us/iaas/Content/API/Concepts/devcloudshellgettingstarted.htm)
+- [OCI SDK and CLI configuration file](https://docs.oracle.com/en-us/iaas/Content/API/Concepts/sdkconfig.htm)

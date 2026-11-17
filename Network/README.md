@@ -1,4 +1,4 @@
-# Networking Hands-on Lab
+# Network Hands-on Lab
 
 **Project:** OCITestDriveBudapest
 
@@ -23,23 +23,32 @@ Create the OCI networking foundation: one VCN, three subnets, three gateways, de
 
 ## Before you begin
 
-1. Sign in to the [OCI Console](https://cloud.oracle.com/).
-2. Select the **region** specified by your instructor. Keep that region throughout the lab.
-3. Select the instructor-provided **compartment** whenever a resource form asks for one.
-4. Confirm that your account can create VCNs, subnets, gateways, route tables, and security lists in that compartment. Your instructor or tenancy administrator should arrange permissions before the session.
-5. Choose a short participant identifier, such as `p01`. Replace **every occurrence of `p01`** in resource names below with your identifier. Keep the IP ranges exactly as shown.
+### 1. Confirm the prerequisites
 
-Each participant should create a separate VCN. Matching CIDRs in these separate, unconnected lab VCNs are intentional; do not create everyone's subnets in one shared VCN.
+1. Complete the Compartment lab and record the lab compartment OCID.
+2. Sign in to the [OCI Console](https://cloud.oracle.com/) and select the instructor's deployment region, normally **Germany Central (Frankfurt)** (`eu-frankfurt-1`). Use the same region for all networking and application resources in the remaining labs.
+3. Select your lab compartment whenever a resource form asks for one.
+4. Use your assigned attendee prefix in all resource names. Keep the supplied CIDRs unless your instructor specifies different ranges.
 
-**Console navigation:** Open **☰ → Networking → Virtual Cloud Networks**, then select your VCN. Depending on the Console layout, related resources appear under tabs such as **Subnets**, **Gateways**, **Routing**, and **Security**, or in a **Resources** menu. Both layouts are covered below.
+Each attendee creates a separate VCN. Matching CIDRs in separate, unconnected lab VCNs are intentional; do not create everyone's subnets in one shared VCN.
 
-Choose **Option A or Option B** for this lab. Both produce the same target configuration. Do not deploy both against the same resources. Run the labs in order: **Compartment → Networking → Virtual Machines**.
+**Console navigation:** Open **Networking → Virtual Cloud Networks**, then select your VCN. Related resources may appear under tabs such as **Subnets**, **Gateways**, **Routing**, and **Security**, or in a **Resources** menu. Both layouts are covered below.
 
-For Option B, install Terraform CLI **1.7 or later, below 2.0** and configure OCI authentication as described below.
+### 2. Confirm permissions and capacity
+
+Confirm that your account can create VCNs, subnets, gateways, route tables, and security lists in the lab compartment. Ask the instructor to verify IAM permissions, networking limits, and any applicable gateway charges before the session.
+
+### 3. Choose a deployment option
+
+Choose **Option A - OCI Console** or **Option B - Terraform**. Both options create the target configuration below. Use one option for each lab deployment; do not create the same resources with both options.
+
+Use your assigned attendee prefix in place of `p01`, consistently across all labs. Follow the workshop order: **Compartment → Network → VM → Load Balancer → PostgreSQL → OKE**.
+
+For Option B, follow the two authentication methods in [Prepare the environment and authentication](#2-prepare-the-environment-and-authentication). Keep attendee settings in `terraform.tfvars` and use a separate Terraform directory and state for each lab and attendee.
 
 ## Target configuration
 
-### Network and subnet assignments
+### Resource settings
 
 | Resource | Name | IPv4 CIDR | Access | Route table | Security list |
 | --- | --- | --- | --- | --- | --- |
@@ -93,7 +102,7 @@ This creates **13 managed resources**: one VCN, three gateways, three route tabl
 ### 1. Create the VCN
 
 1. Open **☰ → Networking → Virtual Cloud Networks**.
-2. Select the training compartment and click **Create VCN**. Use manual creation; avoid the **VCN with Internet Connectivity** wizard, which creates additional resources automatically.
+2. Select the training compartment and select **Create VCN**. Use manual creation; avoid the **VCN with Internet Connectivity** wizard, which creates additional resources automatically.
 3. Enter these values:
 
    | Field | Value |
@@ -105,7 +114,7 @@ This creates **13 managed resources**: one VCN, three gateways, three route tabl
    | DNS label | `p01vcn` |
    | IPv6 prefixes | Do not assign an IPv6 prefix |
 
-4. Click **Create VCN** and open `p01-vcn`.
+4. Select **Create VCN** and open `p01-vcn`.
 5. Wait until its state is **Available**.
 
 **Checkpoint:** The VCN has CIDR `10.0.0.0/16`. OCI creates default networking objects with a VCN; the following steps create dedicated route tables and security lists for this lab.
@@ -119,7 +128,7 @@ For **every ingress and egress rule in this lab**, leave **Stateless** unchecked
 #### 2.1 Public load balancer security list
 
 1. From `p01-vcn`, open **Security → Security Lists**, or **Resources → Security Lists**.
-2. Click **Create Security List**.
+2. Select **Create Security List**.
 3. Enter name **`p01-sl-public-lb`** and select your training compartment.
 4. Under **Ingress Rules**, add these three rules using **+ Another Ingress Rule** or **Add Ingress Rules**:
 
@@ -138,11 +147,11 @@ For **every ingress and egress rule in this lab**, leave **Stateless** unchecked
    | CIDR | `0.0.0.0/0` | All Protocols | Not applicable | Off |
 
 6. Remove any extra rules prefilled in this new list that do not match the tables above. If the correct egress rule already exists, keep it without adding a duplicate.
-7. Click **Create Security List**.
+7. Select **Create Security List**.
 
 #### 2.2 Private VM security list
 
-1. Return to **Security Lists** and click **Create Security List**.
+1. Return to **Security Lists** and select **Create Security List**.
 2. Enter name **`p01-sl-private-vm`** and select the same compartment.
 3. Configure the following rules only:
 
@@ -151,13 +160,13 @@ For **every ingress and egress rule in this lab**, leave **Stateless** unchecked
    | Ingress | Source: CIDR | `10.0.0.0/16` | All Protocols | Off |
    | Egress | Destination: CIDR | `0.0.0.0/0` | All Protocols | Off |
 
-4. Click **Create Security List**.
+4. Select **Create Security List**.
 
 #### 2.3 Private database security list
 
 1. Create another list named **`p01-sl-private-db`**.
 2. Use exactly the same rules as the private VM list: stateful ingress from `10.0.0.0/16`, all protocols; stateful egress to `0.0.0.0/0`, all protocols.
-3. Click **Create Security List**.
+3. Select **Create Security List**.
 
 **Checkpoint:** Public list: **3 ingress + 1 egress**. Each private list: **1 ingress + 1 egress**. Every rule is stateful. Do not edit the VCN's default security list.
 
@@ -166,8 +175,8 @@ For **every ingress and egress rule in this lab**, leave **Stateless** unchecked
 Create the tables without routes first, so they can be selected when creating the subnets. Routes are added after the gateways exist.
 
 1. From `p01-vcn`, open **Routing → Route Tables**, or **Resources → Route Tables**.
-2. Click **Create Route Table**.
-3. Enter **`p01-rt-public-lb`**, select the training compartment, leave route rules empty, and click **Create Route Table**.
+2. Select **Create Route Table**.
+3. Enter **`p01-rt-public-lb`**, select the training compartment, leave route rules empty, and select **Create Route Table**.
 4. Repeat for **`p01-rt-private-vm`**.
 5. Repeat for **`p01-rt-private-db`**.
 
@@ -194,7 +203,7 @@ Create the tables without routes first, so they can be selected when creating th
    | Security lists | Only `p01-sl-public-lb` |
 
 3. Remove the default security list from the selection if it is preselected.
-4. Click **Create Subnet** and wait for **Available**.
+4. Select **Create Subnet** and wait for **Available**.
 
 #### 4.2 Private VM subnet
 
@@ -209,7 +218,7 @@ Repeat **Create Subnet**, changing these fields:
 | DNS label | `privatevm` |
 | Security lists | Only `p01-sl-private-vm` |
 
-Keep the same compartment, regional scope, default DHCP options, and DNS hostname setting. Click **Create Subnet**.
+Keep the same compartment, regional scope, default DHCP options, and DNS hostname setting. Select **Create Subnet**.
 
 #### 4.3 Private database subnet
 
@@ -224,9 +233,9 @@ Repeat again with these values:
 | DNS label | `privatedb` |
 | Security lists | Only `p01-sl-private-db` |
 
-Keep the other settings as above and click **Create Subnet**.
+Keep the other settings as above and select **Create Subnet**.
 
-**Checkpoint:** Open each subnet and confirm its access type, CIDR, route table, and associated security list match the [target configuration](#network-and-subnet-assignments). If the creation form did not expose a route table selector, open that subnet → **Actions → Edit** or **Edit**, choose its custom **Route Table**, and save.
+**Checkpoint:** Open each subnet and confirm its access type, CIDR, route table, and associated security list match the [target configuration](#resource-settings). If the creation form did not expose a route table selector, open that subnet → **Actions → Edit** or **Edit**, choose its custom **Route Table**, and save.
 
 ### 5. Create the gateways
 
@@ -235,27 +244,27 @@ Create all gateways inside **`p01-vcn`** and the training compartment. They are 
 #### 5.1 Internet Gateway
 
 1. Open `p01-vcn` → **Gateways → Internet Gateways**, or **Resources → Internet Gateway**.
-2. Click **Create Internet Gateway**.
+2. Select **Create Internet Gateway**.
 3. Enter name **`p01-igw`** and verify the compartment.
-4. Click **Create Internet Gateway**.
+4. Select **Create Internet Gateway**.
 5. Confirm the gateway is **Available** and enabled. If your form includes **Enable Internet Gateway**, select it.
 
 #### 5.2 NAT Gateway
 
 1. Open **Gateways → NAT Gateways**, or **Resources → NAT Gateways**.
-2. Click **Create NAT Gateway**.
+2. Select **Create NAT Gateway**.
 3. Enter name **`p01-natgw`** and verify the compartment.
 4. Keep **Ephemeral IP Address** selected.
-5. Click **Create NAT Gateway**.
+5. Select **Create NAT Gateway**.
 6. Confirm the gateway is **Available** and traffic is allowed: **Block Traffic** must be **No** or off.
 
 #### 5.3 Service Gateway
 
 1. Open **Gateways → Service Gateways**, or **Resources → Service Gateways**.
-2. Click **Create Service Gateway**.
+2. Select **Create Service Gateway**.
 3. Enter name **`p01-sgw`** and verify the compartment.
 4. Under **Services**, select **All `<region>` Services in Oracle Services Network**. Use the actual region label shown by your Console; do not type the placeholder. Select the All Services option rather than the Object Storage-only option.
-5. Click **Create Service Gateway**.
+5. Select **Create Service Gateway**.
 6. Confirm the gateway is **Available**, the selected service is enabled, and traffic is allowed.
 
 **Checkpoint:** There is one Internet Gateway, one NAT Gateway, and one Service Gateway in your VCN.
@@ -265,7 +274,7 @@ Create all gateways inside **`p01-vcn`** and the training compartment. They are 
 #### 6.1 Public subnet route table
 
 1. Open `p01-vcn` → **Routing → Route Tables**, or **Resources → Route Tables**.
-2. Open **`p01-rt-public-lb`** and click **Add Route Rules**.
+2. Open **`p01-rt-public-lb`** and select **Add Route Rules**.
 3. Configure:
 
    | Field | Value |
@@ -276,11 +285,11 @@ Create all gateways inside **`p01-vcn`** and the training compartment. They are 
    | Target compartment | Your training compartment |
    | Target Internet Gateway | `p01-igw` |
 
-4. Click **Add Route Rules** or save the rule.
+4. Select **Add Route Rules** or save the rule.
 
 #### 6.2 Private VM route table
 
-1. Open **`p01-rt-private-vm`** and click **Add Route Rules**.
+1. Open **`p01-rt-private-vm`** and select **Add Route Rules**.
 2. Add the default route:
 
    | Field | Value |
@@ -321,7 +330,7 @@ Create all gateways inside **`p01-vcn`** and the training compartment. They are 
 
 The service route takes precedence for matching OSN destinations; other external IPv4 destinations use the NAT route. No manual route for `10.0.0.0/16` is needed for communication between the subnets. Leave the public table with its single Internet Gateway route for this exercise.
 
-### 7. Verify your configuration
+### 7. Verify deployment
 
 Complete this checklist in the Console:
 
@@ -355,121 +364,147 @@ Applications, listeners, database access settings, operating-system firewalls, a
 
 ## Option B - Deployment steps for Terraform
 
-Run Terraform commands from this lab’s `terraform/` directory, alongside the existing `.tf` files and `terraform.tfvars.example`. Keep this README at the lab root. This document consolidates the supplied guides; the Terraform source files are maintained separately and are required for Option B.
+Complete **Before you begin** first. This lab has one README for both deployment options. Run all Terraform commands from `Network/terraform/` in your repository checkout.
 
-### Files
+### 1. Review the Terraform files
+
+All paths in this table are relative to `Network/terraform/`.
 
 | File | Purpose |
 | --- | --- |
-| `terraform.tfvars.example` | All attendee settings; copy to `terraform.tfvars` |
-| `variables.tf` | Required input declarations and validations |
-| `versions.tf` | Terraform and OCI provider version requirements |
-| `providers.tf` | OCI profile authentication |
-| `main.tf` | Network resources, routing, security, and subnet assignments |
-| `outputs.tf` | Created resource OCIDs and subnet details |
+| `versions.tf` | Defines the supported Terraform and OCI provider versions. |
+| `providers.tf` | Configures the OCI region and selected authentication method. |
+| `variables.tf` | Declares input parameters, types, and validation rules. |
+| `terraform.tfvars.example` | Provides the example lab settings; copy it to `terraform.tfvars`. |
+| `terraform.tfvars` | Contains your local attendee settings; created in step 3 and kept out of Git. |
+| `main.tf` | Creates the VCN, gateways, route tables, security lists, and subnets. |
+| `outputs.tf` | Reports the VCN, subnet, and gateway OCIDs and network settings. |
+| `.terraform.lock.hcl` | Records the selected provider version and checksums; created or reused by `terraform init` and committed after review. |
 
-### 1. Prerequisites and authentication
+Keep normal lab changes in `terraform.tfvars`; use `variables.tf` to check accepted inputs. Provider version constraints stay in `versions.tf`.
 
-Have an existing OCI training compartment and the permissions to manage its virtual network resources. Ask the instructor for the compartment OCID and region.
+### 2. Prepare the environment and authentication
 
-Choose one of the following authentication methods and set the parameters in terraform.tfvars:
+Use **Terraform 1.5 or later, below 2.0**, as required by `versions.tf`. The OCI provider constraint for this lab is `>= 7.0.0, < 9.0.0`. Terraform installs the provider during initialization. The command examples use Bash, available in OCI Cloud Shell and common Linux/macOS terminals. On Windows, use a compatible shell or adapt the shell syntax.
 
-- Local machine (auth = "APIKey"): Install Terraform CLI and configure an OCI API-signing-key profile in ~/.oci/config. Set oci_config_profile to the profile name, such as "DEFAULT". The profile must contain tenancy, user, fingerprint, and key_file. Register the matching public key with your OCI user and keep the private key outside the repository.
+Choose one of the following authentication methods. In this lab, `auth_method` is the input that sets the OCI provider's `auth` argument. Add the selected values to `terraform.tfvars` in step 3.
 
-- OCI Cloud Shell (auth = "InstancePrincipal"): Terraform CLI is already installed. Use Cloud Shell’s existing authentication environment; no API-signing-key profile is required. Omit oci_config_profile from terraform.tfvars.
+#### Local machine (`auth = "APIKey"`)
 
-For this lab, set region to your tenancy’s home region.
+Install Terraform CLI and configure an OCI API-signing-key profile in `~/.oci/config`. The profile must contain `tenancy`, `user`, `fingerprint`, and `key_file`. Register the matching public key with your OCI user, and keep the private key outside the repository.
 
-### 2. Set your parameters
+```hcl
+auth_method         = "APIKey"
+config_file_profile = "DEFAULT"
+```
 
-Open a terminal in this lab’s `terraform/` directory. If you cloned the GitHub version, create the local parameter file:
+Replace `DEFAULT` with your profile name if needed.
+
+#### OCI Cloud Shell (`auth = "InstancePrincipal"`)
+
+Open Cloud Shell from your signed-in OCI Console session. Terraform CLI is already installed; check its version with `terraform version`. Use Cloud Shell's existing authentication environment. You do not need to create an API-signing-key profile in `~/.oci/config` for this method.
+
+```hcl
+auth_method         = "InstancePrincipal"
+config_file_profile = "DEFAULT"
+```
+
+Keep `config_file_profile = "DEFAULT"` in the parameter file with the current repository code: `variables.tf` still requires this input, although the provider passes it as `null` and ignores it when `auth_method = "InstancePrincipal"`. This value does not require a local `DEFAULT` API-key profile in Cloud Shell. Do not omit it unless the variable declaration has also been made optional.
+
+Keep Cloud Shell's preconfigured authentication environment intact. The selected method must have the IAM permissions listed in **Before you begin**. Set `region` to the deployment region containing your lab network; normally `eu-frankfurt-1`.
+
+### 3. Configure the lab parameters
+
+From the repository root, open this lab's Terraform directory and create your local parameter file:
 
 ```bash
+cd Network/terraform
 cp terraform.tfvars.example terraform.tfvars
 ```
 
-Edit the copied `terraform.tfvars` before deploying:
+If `terraform.tfvars` already exists, edit that file instead of overwriting it. Set the authentication values from step 2, then review the following lab inputs:
 
-```hcl
-region              = "eu-frankfurt-1"  # Use the instructor's region.
-compartment_id      = "ocid1.compartment.oc1..YOUR_ACTUAL_COMPARTMENT_OCID"
-auth_method         = "InstancePrincipal"
-config_file_profile = "DEFAULT"
-name_prefix         = "p01"             # Replace with your participant ID.
-```
-
-Also change `vcn.dns_label` to your participant label, such as `p02vcn`. The file includes all names, CIDRs, supported gateway traffic controls, route destination, service selection pattern, public TCP ports, stateful setting, and tags.
-
-| To change… | Edit in `terraform.tfvars` |
+| Parameter | What to enter or check |
 | --- | --- |
-| Region, compartment, authentication profile | Top-level fields |
-| Resource name prefix | `name_prefix` |
-| VCN range, name suffix, DNS label | `vcn` |
-| Subnet ranges, public/private access, names, DNS labels | `subnets` |
-| Gateway names and enable/block controls | `gateways` |
-| Default route and OSN service selection | `routing` |
-| Ingress source, public TCP ports, protocols, egress destination | `security` |
-| Stateful behavior | Keep `security.stateless = false` for this lab |
-| Resource tags | `freeform_tags` |
+| `region`, `compartment_id` | Deployment region and compartment OCID from the Compartment lab. |
+| `name_prefix` | Your attendee prefix, such as `p01`. |
+| `vcn` | VCN name suffix, CIDR, and DNS label; update `vcn.dns_label` to match your prefix. |
+| `subnets` | CIDRs, names, DNS labels, public/private access, route table names, and security list names. |
+| `gateways` | Gateway names and supported traffic controls. |
+| `routing` | Default route destination and regional Oracle Services Network service-name pattern. |
+| `security` | Protocols, public ingress ports, source/destination CIDRs, and `stateless = false`. |
+| `freeform_tags` | Resource tags. |
 
-All subnet CIDRs must fit inside the VCN and must not overlap. DNS labels start with a letter and contain up to 15 letters/digits. Keep subnet map keys (`public_lb`, `private_vm`, `private_db`) stable when renaming resources; map keys identify Terraform resources.
+All subnet CIDRs must fit inside the VCN and must not overlap. DNS labels start with a letter and contain up to 15 letters/digits. Keep the subnet map keys `public_lb`, `private_vm`, and `private_db` stable when renaming resources; Terraform uses those keys as resource identities.
 
-The strings `CIDR_BLOCK`, `SERVICE_CIDR_BLOCK`, and TCP protocol number `6` in `main.tf` are OCI API/protocol constants. Provider version constraints belong in `versions.tf` because Terraform does not support variables there.
+The internal ingress CIDR follows `vcn.cidr_block`. Oracle service OCIDs and route labels are discovered automatically. The example still contains `gateways.service_blocked`, but `main.tf` does not use it: Service Gateway `block_traffic` is a computed attribute. Do not rely on that parameter to control the Service Gateway.
 
-Changing subnet access, DNS settings, or other immutable attributes may require resource replacement. Review every plan. Security settings are deliberately broad for training; narrow them for production.
+Changing immutable subnet/DNS/access settings may require replacement. Keep the target lab settings unless the instructor has agreed to a change.
 
-### 3. Initialize and validate
+Terraform loads `terraform.tfvars` automatically; no `-var-file` argument is needed. Keep credentials, private keys, local parameter files, state, plans, and `.terraform/` out of Git. Check the applicable `.gitignore` rules; the repository does not provide complete Terraform exclusions for every lab. Commit the Terraform source, sanitized `terraform.tfvars.example`, and reviewed provider lock file.
+
+### 4. Initialize and validate
 
 ```bash
 terraform init
-terraform fmt -check -recursive
+terraform fmt -recursive
 terraform validate
 ```
 
-### 4. Review and deploy
+`init` installs the provider and creates or reuses `.terraform.lock.hcl`. `fmt` normalizes formatting; it does not change the intended infrastructure. `validate` checks configuration syntax and provider schema. Resolve errors before continuing. Retain the reviewed lock file for repeatable workshop runs; test provider upgrades before changing it.
+
+### 5. Review the execution plan
 
 ```bash
-terraform plan -out=network.tfplan
-terraform apply network.tfplan
+terraform plan -out=lab.tfplan
+terraform show lab.tfplan
+```
+
+For a new deployment, expect **13 to add, 0 to change, 0 to destroy**: one VCN, three gateways, three route tables, three security lists, and three subnets. Verify CIDRs, names, route targets, security rules, and subnet associations. No load balancer, VM, or database is created.
+
+Review the complete plan before applying. Stop if it includes unexpected changes or deletions. If you edit parameters after saving the plan, create and review a new plan.
+
+### 6. Apply the reviewed plan
+
+```bash
+terraform apply lab.tfplan
 terraform output
 ```
 
-Review the plan before running apply. For a fresh deployment with the supplied settings, expect **13 resources to add**. Apply creates real OCI resources using your configured profile. No deployment has been performed on your behalf.
+Applying a saved plan executes its reviewed changes without a second approval prompt. Wait for completion and keep the Terraform state for later updates and cleanup. If an apply only partially succeeds, retain the state, resolve the error, and create a fresh plan.
 
-To read machine-readable results:
+### 7. Verify deployment
 
 ```bash
 terraform output -json subnets
 ```
 
-### 5. Verify in OCI Console
+1. Open **Networking → Virtual Cloud Networks** and locate your VCN.
+2. Check the three regional subnets, CIDRs, public/private settings, dedicated route tables, and single custom security list per subnet.
+3. Verify the public default route to the Internet Gateway and both private tables' NAT and regional OSN Service Gateway routes.
+4. Check that all three gateways allow traffic and every rule is stateful. The public security list has three ingress rules and one egress rule; each private list has one ingress rule and one egress rule.
 
-1. Open **Networking → Virtual Cloud Networks** in your chosen region and compartment.
-2. Open your VCN and confirm its IPv4 CIDR and three regional subnets.
-3. Open each subnet. Confirm its dedicated route table, single custom security list, and public/private setting.
-4. Public route table: confirm one default route to Internet Gateway.
-5. Each private table: confirm the NAT default route and regional OSN Service Gateway route.
-6. Confirm all three gateways allow traffic.
-7. Confirm public security list has three ingress rules and one egress rule; private lists each have one ingress and one egress rule. All rules must have **Stateless = No**.
+**Success criteria:** The network matches the checks in [Option A, step 7](#7-verify-deployment). Application connectivity is tested in later labs, after resources and listeners exist.
 
-“All Services” means supported services in the regional **Oracle Services Network**, rather than all OCI addresses. Private subnet traffic to matching services uses the Service Gateway; other internet traffic uses NAT. Local VCN traffic uses OCI's implicit routes.
+### 8. Update the configuration
 
-NAT allows outbound connections and their responses. Direct unsolicited internet access to private resources is not provided. End-to-end testing requires deployed applications and their listeners/firewalls; this lab does not create those resources or a private SSH access path.
-
-### 6. Change settings later
-
-Edit only your parameter file for routine configuration changes, then create and review a fresh plan:
-
-```bash
-terraform plan -out=network.tfplan
-terraform apply network.tfplan
-```
-
-Do not reuse a saved plan after editing parameters. Avoid editing the same resources in the Console while Terraform manages them.
-
-Keep attendee settings in `terraform.tfvars`, separate from resource definitions. Keep credentials, private keys, state, and saved plans out of GitHub. Commit the Terraform source, sanitized example parameters, and reviewed `.terraform.lock.hcl`. Use a separate working directory and state for each lab and attendee.
+Edit `terraform.tfvars` for routine changes, then repeat steps 4–7 with the same working directory and state. Generate a new plan each time. Avoid editing Terraform-managed resources directly in the Console, and never manage the same resource from two Terraform states.
 
 ## Troubleshooting
+
+### Authentication and Terraform
+
+| Symptom | What to check |
+| --- | --- |
+| APIKey authentication fails | Check the selected profile in `~/.oci/config`, tenancy/user OCIDs, fingerprint, key path, and registered public key. |
+| Cloud Shell tries to open `~/.oci/config` | Select `InstancePrincipal` with this lab's authentication input. Confirm the current provider passes `config_file_profile = null` for this mode, and remove any custom profile override that forces local API-key lookup. Keep Cloud Shell's managed authentication environment. |
+| Terraform prompts for `config_file_profile` in Cloud Shell | Keep `config_file_profile = "DEFAULT"` in `terraform.tfvars`; the current variable declaration requires a value even though the provider ignores it in this mode. |
+| Cloud Shell session authentication fails | Start a fresh signed-in Cloud Shell session and retry with its preconfigured environment. Check IAM permissions if authentication succeeds but requests are denied. |
+| Unexpected parameter prompt or undeclared-variable warning | Run commands from this lab's `terraform/` directory and use the exact input names declared in its `variables.tf`. |
+| `terraform validate` fails | Check the reported file/line and provider version. Initialize the directory first; use the reviewed `.terraform.lock.hcl`. |
+| Apply only partially succeeds | Keep state, resolve the reported error, then create and review a fresh plan before applying. |
+
+### Lab-specific issues
 
 | Symptom | What to check |
 | --- | --- |
@@ -480,45 +515,44 @@ Keep attendee settings in `terraform.tfvars`, separate from resource definitions
 | HTTP/HTTPS fails after deploying a load balancer | Verify public IP, listener, backend health, destination port rules, and the public subnet's Internet Gateway route. |
 | SSH from your laptop fails | This lab does not allow inbound internet SSH or provide a private access service. Follow the instructor's separate Bastion or private connectivity exercise. |
 | Ping to an internet destination fails | The public list does not allow unsolicited internet ICMP ingress, and remote systems can block ping. Use the appropriate application protocol for testing. |
+| `Value for unconfigurable attribute` for Service Gateway `block_traffic` | Remove the `block_traffic = var.gateways.service_blocked` assignment from `oci_core_service_gateway.lab`. Oracle exposes this as a computed attribute, not a configurable argument. Keep any remaining parameter-file fields aligned with the actual source. |
+| Unexpected resource replacements | Check immutable subnet/DNS/access settings and review changes before apply. |
 
 If you selected the wrong route table, open the subnet → **Actions → Edit** or **Edit**, change **Route Table**, and save. To fix security list associations, open the subnet's **Security Lists** view and use its association controls; keep the intended custom list associated.
 
-### Terraform troubleshooting
-
-| Symptom | What to check |
-| --- | --- |
-| Authentication or authorization failure | Check the profile, API key registration, region, compartment OCID, and IAM access. Refresh an expired SecurityToken session. |
-| `Value for unconfigurable attribute` for Service Gateway `block_traffic` | Remove the `block_traffic = var.gateways.service_blocked` assignment from `oci_core_service_gateway.lab`. Oracle exposes this as a computed attribute, not a configurable argument. Keep any remaining parameter-file fields aligned with the actual source. |
-| Unexpected resource replacements | Check immutable subnet/DNS/access settings and review changes before apply. |
-| Partial apply | Preserve state, resolve the reported error, then create and review a fresh plan. |
-
 ## Optional cleanup
 
-Remove resources created by later labs first.
+Remove resources created by later labs before deleting their shared network. Use the same deployment option that created each resource.
 
-### Console-created network
+### Option A - OCI Console
 
-After the instructor confirms that later exercises no longer need this network:
-
-1. Delete any load balancers, instances, database resources, private endpoints, and other dependent resources created in subsequent exercises. Follow those exercises' cleanup steps for attached storage and backups.
+1. Delete dependent load balancers, VMs, databases, OKE resources, and private endpoints. Follow their cleanup steps for storage and backups.
 2. Delete the three lab subnets.
-3. Remove all rules from the three custom route tables, then delete those tables.
+3. Remove rules from the three custom route tables, then delete those tables.
 4. Delete the three custom security lists.
-5. Delete `p01-sgw`, `p01-natgw`, and `p01-igw` after route references are removed.
-6. Delete `p01-vcn`. OCI manages its remaining default networking objects as part of VCN deletion.
+5. Delete `p01-sgw`, `p01-natgw`, and `p01-igw` after removing route references.
+6. Delete `p01-vcn`; OCI handles its remaining default network objects.
 
-Only remove resources belonging to your participant VCN. If OCI reports a dependency, inspect and remove that dependency before retrying.
+Remove only resources belonging to your attendee VCN. If OCI reports a dependency, inspect and remove it before retrying.
 
-### Terraform-managed network
+### Option B - Terraform
 
-Remove any application resources added by later labs before destroying the network. From the same directory and state used for deployment:
+From `Network/terraform/`, use the original state and parameter file. Create a cleanup plan:
 
 ```bash
-terraform plan -destroy -out=destroy.tfplan
-terraform apply destroy.tfplan
+terraform plan -destroy -out=cleanup.tfplan
+terraform show cleanup.tfplan
 ```
 
-Terraform uses resource dependencies to order removal. Keep your state until cleanup finishes. Check the region, profile, compartment, and plan before applying destruction.
+Confirm the plan removes only the 13 network resources in this lab's state. Remove all later-lab dependencies first. Terraform orders removal of resources it owns; it cannot remove dependencies owned by other labs.
+
+After reviewing the plan, apply it:
+
+```bash
+terraform apply cleanup.tfplan
+```
+
+Keep Terraform state until cleanup is confirmed. Delete shared network resources and the compartment only after all dependent labs are finished.
 
 ## Oracle documentation references
 
@@ -541,3 +575,5 @@ Console labels can change. These official references explain the corresponding t
 - [Security list resource](https://docs.oracle.com/en-us/iaas/tools/terraform-provider-oci/latest/docs/r/core_security_list.html)
 - [Regional service discovery](https://docs.oracle.com/en-us/iaas/tools/terraform-provider-oci/latest/docs/d/core_services.html)
 - [Service Gateway resource](https://docs.oracle.com/en-us/iaas/tools/terraform-provider-oci/latest/docs/r/core_service_gateway.html)
+- [Using OCI Cloud Shell](https://docs.oracle.com/en-us/iaas/Content/API/Concepts/devcloudshellgettingstarted.htm)
+- [OCI SDK and CLI configuration file](https://docs.oracle.com/en-us/iaas/Content/API/Concepts/sdkconfig.htm)
