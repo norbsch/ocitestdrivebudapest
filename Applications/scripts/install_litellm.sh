@@ -6,7 +6,9 @@ require_file deployment.env
 require_file proxy/secrets/oci-api-key.pem
 require_file proxy/secrets/postgres-ca.pem
 require_file templates/litellm.service
-step 'Konfiguracio ellenorzese es rejtett DB-jelszobekeres'
+require_file proxy/secrets/proxy.env
+[[ -x local/db-venv/bin/python ]] || fail 'Elobb futtasd a 7.5 pontot: bash scripts/prepare_postgres.sh'
+step 'Konfiguracio ellenorzese'
 python3 - <<'PY'
 import ipaddress
 from pathlib import Path
@@ -20,13 +22,9 @@ PY
 chmod 600 deployment.env proxy/secrets/oci-api-key.pem proxy/secrets/postgres-ca.pem
 mkdir -p local
 chmod 700 local proxy/secrets
-if [[ ! -e proxy/secrets/proxy.env ]]; then
-    python3 tools/write_proxy_env.py
-else
-    require_file proxy/secrets/proxy.env
-    chmod 600 proxy/secrets/proxy.env
-    printf 'Meglevo proxy.env hasznalata; master/salt key es DB-jelszo megmarad.\n'
-fi
+chmod 600 proxy/secrets/proxy.env
+step 'PostgreSQL elofeltetel: csak olvasasi ellenorzes'
+local/db-venv/bin/python tools/bootstrap_database.py --check-only
 check_port 4000 litellm
 step 'Ubuntu csomagok es Python kornyezet'
 apt_install python3-venv python3-pip postgresql-client nodejs npm libatomic1 libsndfile1 curl ca-certificates openssl iptables-persistent
@@ -45,8 +43,6 @@ if actual.lower() != v['OCI_FINGERPRINT'].lower(): raise SystemExit('Az OCI API-
 subprocess.run(['openssl', 'x509', '-in', 'proxy/secrets/postgres-ca.pem', '-checkend', '0', '-noout'], check=True)
 print('PASS: OCI fingerprint es CA ervenyesseg')
 PYCERT
-step 'Menedzselt PostgreSQL alkalmazas-adatbazis elokeszitese'
-proxy/.venv/bin/python tools/bootstrap_database.py
 step 'Prisma kliens generalasa'
 SCHEMA="$(proxy/.venv/bin/python -c 'import importlib.util; from pathlib import Path; print(Path(importlib.util.find_spec("litellm_proxy_extras").origin).parent/"schema.prisma")')"
 PATH="$WORKSHOP_ROOT/proxy/.venv/bin:$PATH" proxy/.venv/bin/prisma generate --schema="$SCHEMA"

@@ -1,0 +1,23 @@
+Oktatói ellenőrzés, 2026. november 17.
+
+Aktuális topológia: két Streamlit app VM HTTP/80-on az OCI LB mögött, külön LiteLLM VM HTTP/4000-en, OCI GenAI és menedzselt PostgreSQL 16. Telepítés Cloud Shell Private Network Access és közvetlen SSH használatával. A repo nyilvánosan olvasható HTTPS-klónozását használjuk, minden résztvevő OCI-adminisztrátor.
+
+- A PostgreSQL-előkészítő, a két VM-telepítő és a közös Bash-segéd szintaxisa ellenőrizve.
+- A fő guide 44 Bash blokkjának és a p01 melléklet 0 Bash blokkjának szintaxisa ellenőrizve. A Python-segédek és a scriptbe ágyazott Python-blokkok szintaxisa rendben.
+- A guide a konfiguráció és kulcsok előkészítése után egy LiteLLM-telepítő parancsot, valamint mindkét app VM-en ugyanazt az app-telepítő parancsot használja. A PostgreSQL-előkészítés külön script a 7.5 pontban; a 8. pont csak olvasási kapcsolatpróba. A LiteLLM-telepítő még a csomagtelepítés előtt ellenőrzi a kész DB-t, adminjelszóbekérés és DB-létrehozás nélkül.
+- 13 offline script-teszt sikeres: meglévő DB/jelszó megőrzése, más tulajdonosú DB visszautasítása, SCRAM jelszóhasználat új szerepkörnél, átmeneti szerepkörtagság/SET opció helyreállítása siker és hiba után, meglévő SET jog megőrzése, nem LOGIN szerepkör és nem 16-os PostgreSQL visszautasítása, kizárólag health URL-ek használata és rejtett tokenek, korlátos readiness-várakozás; a check-only sikeres és hibás kapcsolata esetén sincs adminjelszóbekérés vagy inicializálás; a kapcsolatellenőrző csak SELECT-et futtat és visszautasítja a TLS nélküli kapcsolatot.
+- A korábbi 6 helyi konfigurációs/kulcskezelési teszt is sikeres.
+- A telepítők nem hívnak LLM completion végpontot, nem generálnak automatikusan virtuális appkulcsot és nem módosítanak OCI-infrastruktúrát. A VM csomagjait, helyi tűzfalát és systemd szolgáltatását módosítják, amikor a résztvevő futtatja őket.
+- Az aktuális csomag ellenőrzőösszegei és ZIP-integritása rendben; privát kulcs, tényleges env és Python-cache nincs a kiadásban.
+
+Korábbi ellenőrzések a meglévő demókörnyezetben:
+- Hat helyi teszt sikeres: URL-kódolás, szigorú TLS, titkos fájlok 0600 jogosultsága, titkok kihagyása a kimenetből, meglévő konfiguráció/kulcs felülírásának tiltása.
+- Elkülönített Ubuntu 24.04 / Python 3.12 környezetben a natív LiteLLM 1.108.4 proxy+extra_proxy és Prisma 0.15.0 telepítése és a Prisma-kliens generálása sikeres.
+- A natív LiteLLM ideiglenes localhost porton readiness választ adott a meglévő OCI PostgreSQL-hez, szigorú TLS-sel. A próba nem frissítette az adatbázissémát és nem indított modellhívást.
+- A korábbi Dockeres demóban a migráció, a virtuális kulcs, a modellhívás és a PostgreSQL spend napló ellenőrzött.
+
+Az új telepítőscriptek teljes Ubuntu VM-en és OCI PostgreSQL-en futó integrációs tesztje még hátravan. A DB-inicializáló SQL-ágak offline, helyettesített kapcsolatokkal teszteltek; valódi DB-módosítást ez nem bizonyít. A Cloud Shell hálózati hozzáférés, a 80-as port tényleges futtatása és a két app LB-kiesési próbája szintén élő ellenőrzést igényel. A fejlesztés során nem futott telepítés, SSH, sudo/apt vagy adatbázis-kapcsolat az OCI-környezetben.
+
+A guide 7. fejezete részletes Cloud Shell Upload, idézőjelezett átnevezés, jogosultságbeállítás, egysoros SCP és VM-fájlellenőrzési lépéseket tartalmaz. A parancsblokkok szintaxisa ellenőrizve; élő fájlfeltöltés vagy VM-másolás nem történt.
+
+PostgreSQL-előkészítés frissítése: a guide tartalmazza az Active / PostgreSQL 16 infrastruktúra-előfeltételt, a DB-admin hitelesítés elkülönítését, az NSG tényleges hozzárendelését, a rejtett jelszóbekérés sorrendjét, a sikerfeltételeket és a hálózati/TLS/bejelentkezési hibák teendőit. A LiteLLM saját tábláinak migrációja továbbra is az első szolgáltatásindítás feladata. Az új sorrend élő végrehajtása még nem történt meg.

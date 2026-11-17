@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared by the two VM installers. No secret env file is evaluated as shell code.
+# Shared by VM preparation and installation scripts. No secret env file is evaluated as shell code.
 set -Eeuo pipefail
 umask 077
 trap 'printf "HIBA: a telepites megallt (sor: %s). A javitas utan ujrafuttathato; titkos konfiguraciot nem general ujra.\n" "$LINENO" >&2' ERR

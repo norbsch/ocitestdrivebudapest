@@ -26,8 +26,8 @@ flowchart LR
 ```bash
 cd ~
 umask 077
-mkdir -p ~/.ssh ~/.oci-workshop
-chmod 700 ~/.ssh ~/.oci-workshop
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
 ```
 
 A Cloud Shell **Upload** menüjével vagy a fájlok terminálablakba húzásával tölthetsz fel fájlokat. Feltöltés előtt lépj a home könyvtáradba; az alábbi parancsok az ide feltöltött fájlokra hivatkoznak. A saját géped `/Users/...` vagy `C:\...` útvonalai nem léteznek a Cloud Shellben. A feltöltés után ellenőrizd a fájlt `ls -l ~/FAJLNEV` paranccsal. Ha máshová került, a feltöltés helyéről mozgasd a megadott célra.
@@ -104,8 +104,8 @@ A privát fájl a Cloud Shellben marad, nem másoljuk a VM-ekre. Az `IdentityFil
 
 1. **Compute → Instances → LiteLLM VM:** jegyezd fel a Private IP-t, a VCN és a subnet nevét.
 2. **Compute → Instances → app-01 és app-02 VM:** jegyezd fel mindkettő Private IP-jét, VCN-jét és subnetjét. A böngészőből a két app elé tett Load Balancer URL-jét fogod használni.
-3. **Databases → PostgreSQL → DB Systems → saját DB:** a Connection details részből másold ki a **primary FQDN**-t, és töltsd le a **CA certificate** fájlt. A reader endpoint nem megfelelő.
-4. Legyen meg a DB létrehozásakor beállított adminnév és adminjelszó.
+3. **Databases → PostgreSQL → DB Systems → saját DB:** válaszd ki az infrastruktúra compartmentjét, majd a DB systemet. Az állapota legyen **Active**, a PostgreSQL főverziója **16**. A **Connection details** részből másold ki a **primary FQDN**-t, és töltsd le a **CA certificate** fájlt. A reader endpoint nem megfelelő. Más verziónál itt állj meg, és egyeztess az oktatóval.
+4. Legyen meg a DB létrehozásakor beállított **PostgreSQL adminnév és adminjelszó**. Ez külön DB-hitelesítés: az OCI Console felhasználója és az OCI API-kulcs nem helyettesíti. A külön `litellm` DB-t és DB-felhasználót a 7.5 pontban készítjük el, még a LiteLLM telepítése előtt.
 5. Az oktatótól kérd el a workshop **GenAI-régióját, modellazonosítóját és használható inference compartmentjét**. Az inference compartment Details oldalán a **Copy OCID** gombbal másold ki az OCID-t.
 
 A klónozás után az `Applications/templates/ADATLAP.txt` fájlba írd a nem titkos adatokat. Jelszót a jelszókezelődben tarts. Minden résztvevő a saját IP-címeit és OCID-jeit használja.
@@ -146,7 +146,7 @@ Nano mentés: Ctrl+O → Enter → Ctrl+X. A további szerkesztéseknél is így
 
 A p01 környezetben a két meglévő app címe `10.0.1.2` és `10.0.1.3`. A külön LiteLLM VM címét az infrastruktúra gazdájától kérd el; az egyik app címét ne használd LiteLLM-címként.
 
-A GitHubra a legújabb telepítőszkripteknek és segédfájloknak is fel kell kerülniük. Ha a `scripts/install_litellm.sh` vagy `scripts/install_app.sh` hiányzik, ne folytasd a régebbi repo-verzióval.
+A GitHubra a legújabb telepítőszkripteknek és segédfájloknak is fel kell kerülniük. Ha a `scripts/prepare_postgres.sh`, `scripts/install_litellm.sh` vagy `scripts/install_app.sh` hiányzik, ne folytasd a régebbi repo-verzióval.
 
 ## 4 A hálózati szabályok ellenőrzése
 
@@ -166,7 +166,9 @@ A táblázat normál OCI Load Balancert és HTTP/80 app-backendet feltételez. A
 
 Az SSH TCP/22 forrása a Cloud Shell privát hálózati VNIC-jéhez rendelt NSG. Az 5. fejezetben ezt csatolod a Cloud Shellhez. A VM-ek kimenő csomagletöltése, DNS-e és a LiteLLM → GenAI HTTPS/443 elérése is szükséges. A Cloud Shell SSH-kapcsolata nem biztosít internetelérést a VM-eknek: a privát subnethez legyen megfelelő NAT gateway vagy meglévő csomagtükör/proxy.
 
-[OCI NSG lépések](https://docs.oracle.com/en-us/iaas/Content/postgresql/update-db-nsg.htm)
+A DB system részleteinél a **Network security groups** beállításban ellenőrizd, hogy a TCP/5432 szabályt tartalmazó NSG ténylegesen a DB systemhez van rendelve. A szabály puszta létrehozása nem elég. A LiteLLM VM NSG-jének/security listjének kimenő szabálya is engedje a DB privát címére a TCP/5432-t. A két subnet között legyen útvonal; a primary FQDN-t a VM DNS-ének fel kell tudnia oldani. A PostgreSQL-hez a LiteLLM VM-ről kapcsolódunk, nem a saját gépről.
+
+[OCI NSG lépések](https://docs.oracle.com/en-us/iaas/Content/postgresql/update-db-nsg.htm) · [OCI PostgreSQL kapcsolat és CA](https://docs.oracle.com/en-us/iaas/Content/postgresql/connect-to-db.htm)
 
 **NSG hozzárendelése a DB-hez:** PostgreSQL DB system → **Network configuration → NSGs → Edit** → válaszd a DB NSG-jét → **Save changes**.
 
@@ -302,36 +304,144 @@ Az alkalmazások modellaliasa `oci-cohere`. Az OCI modellazonosító a `deployme
 nano proxy/config.yaml
 ```
 
-Itt még nem telepítünk csomagokat. A 9. fejezet egyetlen scriptje állítja be a Python-környezetet, a DB-t, a Prisma-klienst, a VM helyi tűzfalát és a szolgáltatást.
+Itt még nem telepítünk csomagokat. A 7.5 pont külön előkészíti és teszteli a PostgreSQL-t. A 9. fejezet csak ezután telepíti a LiteLLM-et, a Prisma-klienst, a VM helyi tűzfalszabályait és a szolgáltatást.
 
-## 7 A privát API kulcs és a CA felmásolása
+## 7 Kulcsok másolása és a PostgreSQL előkészítése
 
-**CLOUD SHELL:** ha még a LiteLLM VM-en vagy, `exit` paranccsal lépj vissza a Cloud Shellbe, majd `cd ~`. A Cloud Shell **Upload** menüjével töltsd fel az 1. fejezet OCI API privát kulcsát és a 3. fejezet PostgreSQL CA-fájlját. A következő parancsok forrásneveit cseréld a tényleges feltöltött fájlnevekre:
+### 7.1 A két fájl feltöltése Cloud Shellbe
+
+Ha még a LiteLLM VM-en vagy (`ubuntu@...` parancssor), az `exit` paranccsal térj vissza a Cloud Shellbe, majd:
 
 ```bash
-chmod 600 ~/REPLACE_API_PRIVATE_KEY_FILENAME
-install -m 600 ~/REPLACE_API_PRIVATE_KEY_FILENAME ~/.oci-workshop/oci-api-key.pem
-cp ~/REPLACE_DB_CA_FILENAME ~/.oci-workshop/postgres-ca.pem
-chmod 600 ~/.oci-workshop/postgres-ca.pem
-scp ~/.oci-workshop/oci-api-key.pem td-litellm:/home/ubuntu/oci-ai-workshop/proxy/secrets/oci-api-key.pem
-scp ~/.oci-workshop/postgres-ca.pem td-litellm:/home/ubuntu/oci-ai-workshop/proxy/secrets/postgres-ca.pem
+cd ~
+```
+
+**CONSOLE / CLOUD SHELL:** nyisd meg a Cloud Shell **Upload** menüjét, válaszd ki a fájlt a saját gépedről, majd kattints **Upload**. Várd meg a sikeres feltöltést. Ezt végezd el mindkét fájllal:
+
+| Fájl | Honnan származik? | Egységes neve a Cloud Shellben |
+| --- | --- | --- |
+| OCI API privát kulcs | Az 1. fejezetben letöltött `.pem` fájl; a neve lehet hosszú, dátummal és időbélyeggel | `oci-api-key.pem` |
+| PostgreSQL CA certificate | A saját menedzselt PostgreSQL DB systemből letöltött CA | `postgres-ca.pem` |
+
+Az első az **OCI API-kulcs**, nem a VM-ekhez használt SSH privát kulcs. A CA eredeti kiterjesztése lehet `.pub`; ettől ez még DB-tanúsítvány, nem SSH-kulcs.
+
+**CLOUD SHELL:** nézd meg a feltöltött fájlok pontos nevét:
+
+```bash
+ls -lt "$HOME"
+```
+
+Ha a feltöltő más célkönyvtárat mutatott, a következő parancsok forrásútvonalát ahhoz igazítsd. A saját géped `/Users/...` útvonala nem Cloud Shell-útvonal.
+
+### 7.2 Hosszú fájlnevek átnevezése
+
+A `REPLACE_API_PRIVATE_KEY_FILENAME` és `REPLACE_DB_CA_FILENAME` helyére a **saját feltöltött fájlod teljes nevét** írd, kiterjesztéssel együtt. Az idézőjeleket tartsd meg; így a szóközt tartalmazó nevek is működnek.
+
+**CLOUD SHELL:**
+
+```bash
+mv -i "$HOME/REPLACE_API_PRIVATE_KEY_FILENAME" "$HOME/oci-api-key.pem"
+mv -i "$HOME/REPLACE_DB_CA_FILENAME" "$HOME/postgres-ca.pem"
+chmod 600 "$HOME/oci-api-key.pem" "$HOME/postgres-ca.pem"
+ls -l "$HOME/oci-api-key.pem" "$HOME/postgres-ca.pem"
+```
+
+Ha eleve `oci-api-key.pem` vagy `postgres-ca.pem` néven töltötted fel a megfelelő fájlt, annak `mv` sorát hagyd ki. Az `mv -i` meglévő célfájlnál felülírás előtt rákérdez; ellenőrzés nélkül ne írd felül a korábbi kulcsot. **Elvárt:** mindkét fájl látszik, a jogosultságuk `-rw-------`.
+
+### 7.3 Másolás a LiteLLM VM-re
+
+A Cloud Shell **Network** mezőjében az 5. fejezet privát hálózati definíciója legyen aktív. A 6. fejezet szerint a célmappa már létezzen. Minden alábbi `scp` parancs egyetlen sor:
+
+**CLOUD SHELL:**
+
+```bash
+scp "$HOME/oci-api-key.pem" td-litellm:/home/ubuntu/oci-ai-workshop/proxy/secrets/oci-api-key.pem
+scp "$HOME/postgres-ca.pem" td-litellm:/home/ubuntu/oci-ai-workshop/proxy/secrets/postgres-ca.pem
+```
+
+### 7.4 Ellenőrzés a VM-en
+
+**CLOUD SHELL:**
+
+```bash
 ssh td-litellm
 ```
 
-A másolás után a LiteLLM VM parancssorán vagy. A telepítő ellenőrzi a CA-t és azt, hogy az OCI API-kulcs fingerprintje egyezik-e a `deployment.env` értékével. Az SSH privát kulcsát ne másold fel a VM-re.
+**LITELLM:**
 
-## 8 A PostgreSQL és a jelszavak előkészítése
+```bash
+cd /home/ubuntu/oci-ai-workshop
+chmod 600 proxy/secrets/oci-api-key.pem proxy/secrets/postgres-ca.pem
+ls -l deployment.env proxy/secrets/oci-api-key.pem proxy/secrets/postgres-ca.pem
+```
 
-Az OCI menedzselt PostgreSQL 16 DB system már legyen létrehozva és elérhető a LiteLLM VM-ről a 4. fejezet szerint. A külön `litellm` adatbázist és DB-felhasználót a következő fejezet telepítője hozza létre, ha még hiányoznak; kézi SQL-parancsokat nem kell futtatnod.
+**Elvárt:** mindhárom fájl létezik, és a kulcs/CA jogosultsága `-rw-------`. Maradj a LiteLLM VM-en, és folytasd a 7.5 ponttal. Az SSH privát kulcsa a Cloud Shellben marad. Az OCI API-kulcs fingerprintjét majd a LiteLLM telepítője ellenőrzi.
 
-Legyen kéznél:
+### 7.5 A PostgreSQL adatbázis és DB-felhasználó létrehozása
 
-- A `deployment.env` fájlban megadott DB-admin felhasználó jelszava.
-- Egy új jelszó a `litellm` alkalmazás-DB-felhasználóhoz. Ha már létezik ez a DB-felhasználó, annak meglévő jelszavát használd.
+**Előfeltétel:** a 3. pontban ellenőrzött PostgreSQL 16 DB system **Active**, a 4. pont hálózati szabályai készek, a `deployment.env` ki van töltve, és a 7.4 pont fájlellenőrzése sikerült. A `DB_HOST` értéke a saját DB **primary FQDN** címe legyen, protokoll és port nélkül; `DB_PORT=5432`, `DB_NAME=litellm`, `DB_USER=litellm`.
 
-A telepítő a `litellm` DB-jelszót kétszer, rejtve kéri be az új helyi `proxy.env` létrehozásakor. A DB-admin jelszavát csak akkor kéri, ha az alkalmazás kapcsolata még nem használható és inicializálni/ellenőrizni kell a DB-objektumokat. A jelszavakat ne add meg parancssori argumentumként.
+Legyen kéznél a `DB_ADMIN` felhasználó DB-jelszava. Válassz egy külön jelszót a `litellm` alkalmazás-DB-felhasználóhoz; ha az már létezik, a meglévő jelszavát használd. Ezeket nem kell a `deployment.env` fájlba beírni.
 
-Meglévő szerepkört, jelszót és adatbázist nem töröl és nem ír felül. Más tulajdonosú adatbázisnál vagy hibás meglévő jelszónál megáll; ilyenkor a konfigurációt kell javítani.
+**LITELLM VM, `ubuntu` felhasználóként; a `bash` elé ne írj `sudo`-t:**
+
+```bash
+cd /home/ubuntu/oci-ai-workshop
+bash scripts/prepare_postgres.sh
+```
+
+A script sorrendben:
+
+1. Telepíti a DB-előkészítéshez szükséges Python-csomagokat a külön `local/db-venv` környezetbe.
+2. Új konfigurációnál kétszer, rejtve bekéri a **`litellm` DB-felhasználó jelszavát**, majd elkészíti a védett `proxy/secrets/proxy.env` fájlt. Meglévő fájlt és kulcsokat megőriz.
+3. Megpróbál a `litellm` felhasználóval a `litellm` adatbázishoz kapcsolódni, a feltöltött CA-val és **`sslmode=verify-full`** beállítással. Ez a tanúsítványláncot és a primary FQDN egyezését is ellenőrzi.
+4. Ha az alkalmazás kapcsolata még nem használható, rejtve bekéri a **DB-admin jelszavát**, és a `postgres` adatbázisba kapcsolódva létrehozza a hiányzó `litellm` LOGIN szerepkört és a `litellm` tulajdonú adatbázist. A `CREATE DATABASE ... OWNER litellm` művelethez szükséges átmeneti `SET ROLE` jogot kezeli és visszaállítja. A DB-admin jelszavát nem menti fájlba.
+5. Újra az alkalmazás felhasználójával ellenőrzi a bejelentkezést, az adatbázist, a PostgreSQL 16 verziót, az aktív TLS-t és a `public` sémán a `CREATE` jogot.
+
+**Elvárt:** mindkét sor megjelenik:
+
+```text
+PASS: litellm adatbazis/felhasznalo, verify-full TLS es schema CREATE jog.
+PASS: PostgreSQL elokeszitve; a 8. pont ellenorzese kovetkezik.
+```
+
+Ha a script hibával megáll, még ne futtasd a LiteLLM telepítőjét:
+
+| Hiba | Mit ellenőrizz? |
+| --- | --- |
+| Névfeloldás vagy kapcsolati időtúllépés | Saját primary FQDN a `deployment.env` fájlban; DB Active állapot; LiteLLM → DB TCP/5432, NSG tényleges hozzárendelése, subnetútvonal és DNS. |
+| Tanúsítvány/TLS hiba | A CA ugyanebből a DB systemből legyen letöltve; a `DB_HOST` FQDN legyen, ne IP. A TLS-ellenőrzést ne kapcsold ki. |
+| Bejelentkezési hiba | A DB-admin és a `litellm` jelszava különböző hitelesítő adat; meglévő `litellm` szerepkörnél annak korábbi jelszava kell. |
+| Más DB-tulajdonos, hiányzó adminjog vagy schema-jog | Egyeztess a DB-t létrehozó személlyel; a script a meglévő DB-t, szerepkört és jelszót nem írja felül. |
+
+A részletes hibát szükség esetén ezzel a TLS-t is ellenőrző klienssel vizsgáld. A jelszót külön, rejtve kéri; a kimenetét és a konfigurációt ne másold nyilvános helyre. **LITELLM VM:**
+
+```bash
+local/db-venv/bin/python - <<'PYDBCHECK'
+from pathlib import Path
+import getpass
+import psycopg
+v = dict(line.split('=', 1) for line in Path('deployment.env').read_text().splitlines() if line and not line.startswith('#') and '=' in line)
+with psycopg.connect(host=v['DB_HOST'], port=int(v['DB_PORT']), dbname='postgres', user=v['DB_ADMIN'], password=getpass.getpass('DB-admin jelszo: '), sslmode='verify-full', sslrootcert=str(Path('proxy/secrets/postgres-ca.pem').resolve()), connect_timeout=10) as conn:
+    print(conn.execute('SELECT current_user, current_database()').fetchone())
+    print(conn.execute('SELECT ssl, version FROM pg_stat_ssl WHERE pid=pg_backend_pid()').fetchone())
+PYDBCHECK
+```
+
+Az utolsó parancs csak olvas; az admin-kapcsolatot teszteli, az alkalmazás kapcsolatának sikerét nem helyettesíti. Javítás után a `bash scripts/prepare_postgres.sh` parancs újrafuttatható. Ha a védett `proxy.env` már létrejött, a script nem kér új alkalmazásjelszót, és nem cseréli le a mentettet; hibás mentett jelszónál állj meg és egyeztess az oktatóval. A korábban létrehozott `deployment.env`, `local` és `proxy/secrets` könyvtárakat nem kell visszavonni vagy törölni.
+
+## 8 A kész PostgreSQL-kapcsolat ellenőrzése
+
+**Ide már működő `litellm` adatbázissal és DB-felhasználóval érkezz:** a 7.5 pont mindkét `PASS` sora előfeltétel. **LITELLM VM:**
+
+```bash
+cd /home/ubuntu/oci-ai-workshop
+local/db-venv/bin/python tools/bootstrap_database.py --check-only
+```
+
+**Elvárt:** `PASS: litellm adatbazis/felhasznalo, verify-full TLS es schema CREATE jog.` Ez a parancs kizárólag ellenőriz: nem kér adminjelszót, nem hoz létre adatbázist és nem módosít jogosultságokat. Hiba esetén térj vissza a 7.5 ponthoz.
+
+Ekkor az alkalmazás DB-bejelentkezése és TLS-kapcsolata már működik. A LiteLLM saját táblái még hiányozhatnak: azokat a 9. pontban, az első szolgáltatásindítás sémamigrációja hozza létre.
 
 ## 9 LiteLLM telepítése egy script futtatásával
 
@@ -342,17 +452,16 @@ cd /home/ubuntu/oci-ai-workshop
 bash scripts/install_litellm.sh
 ```
 
-A parancsot `ubuntu` felhasználóként futtasd, a `bash` elé ne írj `sudo`-t. A script a szükséges műveletekhez maga használ `sudo`-t. A 6–8. fejezet konfigurációs előfeltételei legyenek készen.
+A parancsot `ubuntu` felhasználóként futtasd, a `bash` elé ne írj `sudo`-t. A script a szükséges műveletekhez maga használ `sudo`-t. A 6–8. fejezet legyen kész, beleértve a sikeres PostgreSQL-kapcsolatellenőrzést is.
 
 A script sorrendben:
 
-1. Ellenőrzi a célgépet, a konfigurációt és a 4000-es portot; új konfigurációnál rejtve bekéri a `litellm` DB-jelszót.
-2. Telepíti az Ubuntu-csomagokat és a rögzített LiteLLM/Prisma Python-csomagokat.
+1. Ellenőrzi a célgépet és a konfigurációt, majd a már előkészített PostgreSQL-kapcsolatot `--check-only` módban. Működő DB nélkül itt megáll; nem kér DB-admin-jelszót és nem készíti el helyetted az adatbázist.
+2. Ellenőrzi a 4000-es portot, majd telepíti az Ubuntu-csomagokat és a rögzített LiteLLM/Prisma Python-csomagokat.
 3. Ellenőrzi az OCI API-kulcs fingerprintjét és a CA érvényességét.
-4. Szükség esetén rejtett DB-admin-jelszóbekéréssel létrehozza a hiányzó `litellm` DB-felhasználót és adatbázist, és ellenőrzi a TLS-kapcsolatot.
-5. Generálja a Prisma-klienst, majd engedélyezi az app-01 és app-02 privát IP-jéről a helyi TCP/4000 kapcsolatot, és menti a tűzfalszabályokat.
-6. Telepíti, automatikus indításra állítja és újraindítja a `litellm` systemd szolgáltatást. A LiteLLM indulásakor lefutnak a szükséges sémamigrációk.
-7. Legfeljebb 10 percig vár a health végpontokra, majd ellenőrzi a Prisma DB-kapcsolatot, a TLS-t és a migrációk állapotát.
+4. Generálja a Prisma-klienst, majd engedélyezi az app-01 és app-02 privát IP-jéről a helyi TCP/4000 kapcsolatot, és menti a tűzfalszabályokat.
+5. Telepíti, automatikus indításra állítja és újraindítja a `litellm` systemd szolgáltatást. A LiteLLM indulásakor lefutnak a szükséges sémamigrációk a már működő `litellm` adatbázison.
+6. Legfeljebb 10 percig vár a health végpontokra, majd ellenőrzi a Prisma DB-kapcsolatot, a TLS-t és a migrációk állapotát.
 
 Az OCI NSG-ket a script nem állítja: azok a 4. fejezet szerint már engedjék a forgalmat. Az első telepítés csomagletöltések miatt több perc lehet. Siker esetén a script kilép, a LiteLLM tovább fut a VM-en.
 
@@ -621,7 +730,7 @@ FROM "LiteLLM_SpendLogs" ORDER BY "startTime" DESC LIMIT 10;
 | LB nem healthy vagy az app nem tölt be | App szolgáltatás, HTTP/80 backend, `/_stcore/health`, LB → app NSG és WebSocket ellenőrzése |
 | DB-timeout | 4. lépés: TCP/5432 és az NSG DB-hozzárendelése |
 | DB-inicializálás hibázik | DB-admin név/jelszó, PostgreSQL 16 és a meglévő litellm DB tulajdonosa; a script hiányzó DB-nél kezeli az átmeneti SET ROLE jogot |
-| `database litellm does not exist` | A 9. fejezet telepítőjének DB-inicializálása nem fejeződött be; a jelzett hibát javítsd |
+| `database litellm does not exist` | A 7.5 pont PostgreSQL-előkészítése nem fejeződött be; javítsd a hibát, futtasd újra, és csak a 8. pont sikeres ellenőrzése után folytasd |
 | DB TLS-hiba | Primary FQDN és a saját DB-hez letöltött CA ellenőrzése |
 | Hiányzó app/.env | Előbb a 11. és 13. fejezetet fejezd be |
 | A telepítő célgép-hibával kilép | SSH után, ubuntu felhasználóként, Ubuntu 24.04 amd64 VM-en, /home/ubuntu/oci-ai-workshop alatt indítsd |
