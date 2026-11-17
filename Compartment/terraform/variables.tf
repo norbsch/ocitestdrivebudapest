@@ -14,7 +14,7 @@ variable "config_file_profile" {
   type        = string
 
   validation {
-    condition     = length(trimspace(var.oci_config_profile)) > 0
+    condition     = length(trimspace(var.config_file_profile)) > 0
     error_message = "Set a nonempty OCI configuration profile name."
   }
 }

@@ -426,18 +426,6 @@ terraform fmt -check -recursive
 terraform validate
 ```
 
-Initialization downloads the OCI provider and creates `.terraform.lock.hcl`. Keep that lock file in GitHub to give attendees the same provider version. The allowed provider range is 7.x–8.x.
-
-If `tests/network.tftest.hcl` is present, run its mocked tests before deploying:
-
-```bash
-terraform test
-```
-
-These tests use a mocked OCI provider and create no OCI resources. Their assertions use the supplied workshop defaults plus one customization scenario; if you change the workshop baseline, update the assertions too. The test-specific compartment overrides the placeholder, so real credentials are unnecessary for mocked tests.
-
-The Terraform source was not supplied with this README standardization request. Run formatting, validation, and any supplied mocked tests against the actual source before the workshop; no live OCI deployment was performed as part of this documentation update.
-
 ### 4. Review and deploy
 
 ```bash

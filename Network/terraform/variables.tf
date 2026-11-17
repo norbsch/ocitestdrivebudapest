@@ -18,7 +18,7 @@ variable "auth_method" {
   type        = string
   default     = "InstancePrincipal"
   validation {
-    condition     = contains(["APIKey", "InstancePrincipal"], var.auth)
+    condition     = contains(["APIKey", "InstancePrincipal"], var.auth_method)
     error_message = "auth must be APIKey or InstancePrincipal."
   }
 }
