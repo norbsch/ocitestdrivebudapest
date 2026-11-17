@@ -370,15 +370,15 @@ Run Terraform commands from this lab’s `terraform/` directory, alongside the e
 
 ### 1. Prerequisites and authentication
 
-- Install [Terraform](https://developer.hashicorp.com/terraform/install) **1.7 or later, below 2.0**.
-- Have an existing OCI training compartment and the permissions to manage its virtual network resources. Ask the instructor for the compartment OCID and region.
-- Configure an OCI API signing key profile in `~/.oci/config` using Oracle's [SDK and CLI configuration guidance](https://docs.oracle.com/en-us/iaas/Content/API/Concepts/sdkconfig.htm). Register the public signing key with your OCI user. Store the private key outside this repository.
+Have an existing OCI training compartment and the permissions to manage its virtual network resources. Ask the instructor for the compartment OCID and region.
 
-For the default `auth_method = "APIKey"`, the named OCI profile supplies tenancy OCID, user OCID, signing key fingerprint, and private key path. Terraform reads these from your profile. The deployment region comes from `terraform.tfvars`.
+Choose one of the following authentication methods and set the parameters in terraform.tfvars:
 
-If your instructor provides a CLI session profile, use `auth_method = "SecurityToken"` and its profile name instead. Refresh expired sessions before planning, applying, or destroying. See Oracle's [provider authentication documentation](https://docs.oracle.com/en-us/iaas/Content/dev/terraform/configuring.htm).
+- Local machine (auth = "APIKey"): Install Terraform CLI and configure an OCI API-signing-key profile in ~/.oci/config. Set oci_config_profile to the profile name, such as "DEFAULT". The profile must contain tenancy, user, fingerprint, and key_file. Register the matching public key with your OCI user and keep the private key outside the repository.
 
-No OCI credentials are included in this package.
+- OCI Cloud Shell (auth = "InstancePrincipal"): Terraform CLI is already installed. Use Cloud Shell’s existing authentication environment; no API-signing-key profile is required. Omit oci_config_profile from terraform.tfvars.
+
+For this compartment lab, set region to your tenancy’s home region. Your OCI user must have permission to create compartments under the selected parent compartment.
 
 ### 2. Set your parameters
 
@@ -393,7 +393,7 @@ Edit the copied `terraform.tfvars` before deploying:
 ```hcl
 region              = "eu-frankfurt-1"  # Use the instructor's region.
 compartment_id      = "ocid1.compartment.oc1..YOUR_ACTUAL_COMPARTMENT_OCID"
-auth_method         = "APIKey"
+auth_method         = "InstancePrincipal"
 config_file_profile = "DEFAULT"
 name_prefix         = "p01"             # Replace with your participant ID.
 ```

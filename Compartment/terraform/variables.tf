@@ -9,7 +9,7 @@ variable "auth" {
   }
 }
 
-variable "oci_config_profile" {
+variable "config_file_profile" {
   description = "Existing API-key profile name in ~/.oci/config."
   type        = string
 

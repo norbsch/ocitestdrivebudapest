@@ -16,9 +16,10 @@ variable "compartment_id" {
 variable "auth_method" {
   description = "Authentication through an external OCI API key or security token profile."
   type        = string
+  default     = "InstancePrincipal"
   validation {
-    condition     = contains(["APIKey", "SecurityToken"], var.auth_method)
-    error_message = "Use APIKey or SecurityToken with the appropriate OCI profile."
+    condition     = contains(["APIKey", "InstancePrincipal"], var.auth)
+    error_message = "auth must be APIKey or InstancePrincipal."
   }
 }
 

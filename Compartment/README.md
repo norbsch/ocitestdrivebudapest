@@ -38,9 +38,9 @@ Choose **Option A or Option B** for this lab. Both produce the same target confi
 
 For Option B – Terraform, choose one of the following authentication methods and set the parameters in terraform.tfvars:
 
-- Local machine (auth = "APIKey"): Install Terraform CLI and configure an OCI API-signing-key profile in ~/.oci/config. Set config_file_profile to the profile name, such as "DEFAULT". The profile must contain tenancy, user, fingerprint, and key_file. Register the matching public key with your OCI user and keep the private key outside the repository.
+- Local machine (auth = "APIKey"): Install Terraform CLI and configure an OCI API-signing-key profile in ~/.oci/config. Set oci_config_profile to the profile name, such as "DEFAULT". The profile must contain tenancy, user, fingerprint, and key_file. Register the matching public key with your OCI user and keep the private key outside the repository.
 
-- OCI Cloud Shell (auth = "InstancePrincipal"): Terraform CLI is already installed. Use Cloud Shell’s existing authentication environment; no API-signing-key profile is required. Omit config_file_profile from terraform.tfvars.
+- OCI Cloud Shell (auth = "InstancePrincipal"): Terraform CLI is already installed. Use Cloud Shell’s existing authentication environment; no API-signing-key profile is required. Omit oci_config_profile from terraform.tfvars.
 
 For this compartment lab, set region to your tenancy’s home region. Your OCI user must have permission to create compartments under the selected parent compartment.
 
@@ -86,7 +86,7 @@ Keep the compartment for all remaining labs.
 
 ## Option B - Deployment steps for Terraform
 
-Run Terraform commands from this lab’s `terraform/` directory, alongside the existing `.tf` files and `terraform.tfvars.example`. Keep this README at the lab root. This document consolidates the supplied guides; the Terraform source files are maintained separately and are required for Option B.
+Run Terraform commands from this lab’s `terraform/` directory, alongside the existing `.tf` files and `terraform.tfvars.example`.
 
 ### 1. Set all lab parameters in one separate file
 
