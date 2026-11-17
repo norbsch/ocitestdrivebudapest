@@ -65,8 +65,8 @@ variable "instances" {
     private_ip = string
   }))
   validation {
-    condition     = length(var.instances) == 2 && length(distinct([for vm in values(var.instances) : vm.private_ip])) == 2
-    error_message = "Provide exactly two instances with distinct private IP addresses."
+    condition     = length(var.instances) == 3 && length(distinct([for vm in values(var.instances) : vm.private_ip])) == 3
+    error_message = "Provide exactly three instances with distinct private IP addresses."
   }
   validation {
     condition     = alltrue([for vm in values(var.instances) : contains([1, 2, 3], vm.ad_number)])

@@ -4,7 +4,7 @@
 
 ## Goal / Estimated time
 
-Create two private Ubuntu Linux VMs in the existing regional VM subnet, one in AD1 and one in AD2, sharing one SSH public key.
+Create three private Ubuntu Linux VMs in the existing regional VM subnet, sharing one SSH public key. VM 1 in AD1 and VM 2 in AD2 host the web application; VM 3 in AD3 hosts the LLM gateway.
 
 **Estimated time:** 30–45 minutes using OCI Console; 20–30 minutes using Terraform after authentication is configured. Allow additional time for private SSH connectivity if it is not already available.
 
@@ -21,11 +21,11 @@ Create two private Ubuntu Linux VMs in the existing regional VM subnet, one in A
 
 ## Before you begin
 
-1. Sign in to OCI and select the region containing your existing lab network. The region must expose **AD1 and AD2**, with E5 capacity in both. AD names include a tenancy-specific prefix; select the entries ending in `AD-1` and `AD-2`.
+1. Sign in to OCI and select the region containing your existing lab network. The region must expose **AD1, AD2, and AD3**, with E5 capacity in all three. AD names include a tenancy-specific prefix; select the entries ending in `AD-1`, `AD-2`, and `AD-3`.
 2. Select the compartment created in the earlier lab. You need permissions to launch instances and boot volumes, use the existing subnet, and inspect the network, images, and availability domains. Ask the instructor to resolve missing access.
-3. Under **Networking → Virtual cloud networks**, open `p01-vcn` and verify that `p01-subnet-private-vm` has CIDR `10.0.1.0/24`, is **private**, and is **regional**. An AD-specific subnet cannot serve both requested ADs.
-4. Verify that `10.0.1.2` and `10.0.1.3` are unused. OCI reserves the first two and last addresses of a subnet; for this /24, those are `.0`, `.1`, and `.255`. Both requested addresses are valid.
-5. Allow for the cost of two E5 instances and their boot volumes. Review your tenancy limits and estimate before launching.
+3. Under **Networking → Virtual cloud networks**, open `p01-vcn` and verify that `p01-subnet-private-vm` has CIDR `10.0.1.0/24`, is **private**, and is **regional**. An AD-specific subnet cannot serve all three requested ADs.
+4. Verify that `10.0.1.2`, `10.0.1.3`, and `10.0.1.4` are unused. OCI reserves the first two and last addresses of a subnet; for this /24, those are `.0`, `.1`, and `.255`. All three requested addresses are valid.
+5. Allow for the cost of three E5 instances and their boot volumes. Review your tenancy limits and estimate before launching.
 6. For SSH verification, have a routed private connection (VPN/FastConnect) or an instructor-provided bastion. Applicable security lists/NSGs must allow TCP 22 from that connection's source. A NAT gateway provides outbound access; it does not provide inbound SSH access.
 
 Choose **Option A or Option B** for this lab. Both produce the same target configuration. Do not deploy both against the same resources. Run the labs in order: **Compartment → Networking → Virtual Machines**.
@@ -34,22 +34,23 @@ Use your attendee prefix in place of `p01`, matching the networking lab. For Opt
 
 ## Target configuration
 
-| Setting | VM 1 | VM 2 |
-| --- | --- | --- |
-| Display name | `p01-vm-01` | `p01-vm-02` |
-| Placement | AD1 | AD2 |
-| Image family |  Canonical Ubuntu 24.04 | Same |
-| Exact image | `Canonical-Ubuntu-24.04-2026.11.05-0` | Same |
-| Shape | `VM.Standard.E5.Flex` | Same |
-| OCPUs | 2 | 2 |
-| Memory | 4 GB | 4 GB |
-| Existing VCN | `p01-vcn` | Same |
-| Existing subnet | `p01-subnet-private-vm` (`10.0.1.0/24`) | Same |
-| Primary private IPv4 | `10.0.1.2` (manual) | `10.0.1.3` (manual) |
-| Public IPv4 | None | None |
-| SSH key | Generate and save one pair | Reuse VM 1's public key |
+| Setting | VM 1 | VM 2 | VM 3 |
+| --- | --- | --- | --- |
+| Role | Web application | Web application | LLM gateway |
+| Display name | `p01-vm-01` | `p01-vm-02` | `p01-vm-03` |
+| Placement | AD1 | AD2 | AD3 |
+| Image family | Canonical Ubuntu 24.04 | Same | Same |
+| Exact image | `Canonical-Ubuntu-24.04-2026.11.05-0` | Same | Same |
+| Shape | `VM.Standard.E5.Flex` | Same | Same |
+| OCPUs | 2 | 2 | 2 |
+| Memory | 4 GB | 4 GB | 4 GB |
+| Existing VCN | `p01-vcn` | Same | Same |
+| Existing subnet | `p01-subnet-private-vm` (`10.0.1.0/24`) | Same | Same |
+| Primary private IPv4 | `10.0.1.2` (manual) | `10.0.1.3` (manual) | `10.0.1.4` (manual) |
+| Public IPv4 | None | None | None |
+| SSH key | Generate and save one pair | Reuse VM 1's public key | Reuse VM 1's public key |
 
-Use the standard x86 image `Oracle-Linux-9.8-2026.10.30-0`. Confirm availability in the selected region before the workshop; use an instructor-approved replacement only if necessary.
+Use the standard x86 Ubuntu image `Canonical-Ubuntu-24.04-2026.11.05-0`. Confirm availability in the selected region before the workshop; use an instructor-approved replacement only if necessary.
 
 For other settings not specified here, keep the Console defaults. Terraform leaves optional settings such as boot-volume size, fault domain, launch options, and agent configuration unspecified so OCI chooses its defaults. Optional Console and API defaults can differ; the table above defines the required configuration.
 
@@ -87,8 +88,8 @@ Console labels and section order may vary; complete all the sections below befor
 
 1. In **Add SSH keys**, select **Generate a key pair for me**.
 2. Click **Download private key** and **Download public key**. Save both to a secure local folder before submitting the form.
-3. Keep the downloaded filenames together and note their locations. The `.pub` file is the public key to reuse for VM 2; the private key is used by your SSH client.
-4. Do not upload the private key to VM 2 or commit either key to the lab repository. OCI cannot recover your private key later.
+3. Keep the downloaded filenames together and note their locations. The `.pub` file is the public key to reuse for VM 2 and VM 3; the private key is used by your SSH client.
+4. Do not upload the private key to VM 2 or VM 3 or commit either key to the lab repository. OCI cannot recover your private key later.
 
 ### 5. Create VM 1
 
@@ -114,6 +115,25 @@ Console labels and section order may vary; complete all the sections below befor
 5. Keep other settings at defaults, click **Create**, and wait for **Running**.
 6. Verify AD2, private IP `10.0.1.3`, and no public IP.
 
+### 7. Create VM 3 for the LLM gateway
+
+1. Return to **Compute → Instances → Create instance**.
+2. Repeat the VM 1 configuration with these changes:
+
+   | Field | Value |
+   | --- | --- |
+   | Name | `p01-vm-03` |
+   | Availability domain | **AD3** (entry ending in `AD-3`) |
+   | Manually assigned private IPv4 | **10.0.1.4** |
+   | Add SSH keys | **Upload public key file (.pub)** |
+
+3. Upload the **public key downloaded for VM 1**, or paste that same public key. Do not generate another pair.
+4. Confirm Ubuntu 24.04 with the same image build, **VM.Standard.E5.Flex**, **2 OCPUs / 4 GB**, **p01-vcn**, and **p01-subnet-private-vm**. Confirm no public IP will be assigned.
+5. Keep other settings at defaults, click **Create**, and wait for **Running**.
+6. Verify AD3, private IP `10.0.1.4`, and no public IP. Reserve this VM for the LLM gateway; VM 1 and VM 2 are the web application hosts.
+
+This lab provisions the three VMs. Installing the web application and LLM gateway software is a separate step.
+
 ## Option B - Deployment steps for Terraform
 
 Run Terraform commands from this lab’s `terraform/` directory, alongside the existing `.tf` files and `terraform.tfvars.example`. Keep this README at the lab root. This document consolidates the supplied guides; the Terraform source files are maintained separately and are required for Option B.
@@ -125,7 +145,7 @@ Run Terraform commands from this lab’s `terraform/` directory, alongside the e
 3. Obtain the tenancy OCID, lab compartment OCID, and network compartment OCID. If the network and VMs share a compartment, use the same compartment OCID for both inputs.
 4. Open a terminal in this lab's `terraform/` directory.
 
-### 2. Generate one SSH key pair for both VMs
+### 2. Generate one SSH key pair for all three VMs
 
 Before planning VM 1, generate one local RSA key pair. The Console can generate a key interactively; the Terraform workflow generates it locally and supplies only its public half to OCI.
 
@@ -140,7 +160,7 @@ chmod 600 ~/.ssh/p01-vm-key
 
 Choose a passphrase when prompted. If the path already exists, reuse the intended existing lab key or choose a new filename; do not overwrite a key you need. On Windows, run `ssh-keygen` in PowerShell and use your Windows home path for `ssh_public_key_path` (forward slashes are accepted in Terraform strings).
 
-Both instances reference this one `.pub` file. The private key is never read by Terraform and is not generated into Terraform state. Generate the key on the machine where Terraform runs, or securely make only the public key available there before planning. Do not put private keys in this repository.
+All three instances reference this one `.pub` file. The private key is never read by Terraform and is not generated into Terraform state. Generate the key on the machine where Terraform runs, or securely make only the public key available there before planning. Do not put private keys in this repository.
 
 ### 3. Set all parameters in a separate file
 
@@ -151,13 +171,13 @@ cp terraform.tfvars.example terraform.tfvars
 Edit **terraform.tfvars**:
 
 - Replace all three placeholder OCIDs.
-- Set `region` to the region containing the existing network and both ADs. The example uses `eu-frankfurt-1`.
+- Set `region` to the region containing the existing network and all three ADs. The example uses `eu-frankfurt-1`.
 - Set `config_file_profile` to your OCI profile name.
 - Confirm `vcn_name`, `subnet_name`, and the exact image display name.
 - Confirm the SSH public-key path.
-- Keep the two default instance entries, or change the ADs, IPs, and names if instructed.
+- Configure three instance entries: `p01-vm-01` in AD1 at `10.0.1.2` and `p01-vm-02` in AD2 at `10.0.1.3` for the web application, plus `p01-vm-03` in AD3 at `10.0.1.4` for the LLM gateway. If your parameter file currently contains only two entries, add the third using the same entry structure and the same SSH public key.
 
-All attendee-editable infrastructure parameters are in this file; `variables.tf` defines their types. Authentication material remains in your OCI profile. No edits to `main.tf` are required. VCN and subnet display names must each identify exactly one matching resource in the configured scope. This lab assumes the VCN and subnet are in the same network compartment.
+All attendee-editable infrastructure parameters are in this file; `variables.tf` defines their types. Authentication material remains in your OCI profile. If the supplied Terraform configuration creates instances from the parameter collection, no edits to `main.tf` are required. If it defines only two fixed instances, extend the configuration to create the third instance before proceeding. VCN and subnet display names must each identify exactly one matching resource in the configured scope. This lab assumes the VCN and subnet are in the same network compartment.
 
 ### 4. Initialize and validate
 
@@ -175,7 +195,7 @@ The provider constraint supports OCI provider major versions 7 and 8. Initializa
 terraform plan -out=vm-lab.tfplan
 ```
 
-Expect **2 resources to add**: two `oci_core_instance.vm` resources. Their boot volumes and primary VNICs are created with the instances. The existing compartment, VCN, and subnet are read as inputs and are not created or changed.
+For a new deployment, expect **3 resources to add**: three Compute instance resources. When extending an existing two-VM deployment using the same state, expect **1 resource to add** for VM 3 and no changes to VM 1 or VM 2. Their boot volumes and primary VNICs are created with the instances. The existing compartment, VCN, and subnet are read as inputs and are not created or changed.
 
 Check the names, ADs, image, shape configuration, private IPs, and `assign_public_ip = false`. The image is looked up by its exact name and shape compatibility in your selected region. The plan stops if the VCN, subnet, or image is not uniquely found, the subnet is not regional/private, or an IP is outside the subnet or reserved. OCI checks IP availability, quota, and launch capacity when creating the instances.
 
@@ -186,7 +206,7 @@ terraform apply vm-lab.tfplan
 terraform output instances
 ```
 
-Both VMs may launch concurrently and use the same public key. Generating a new key for the second VM is unnecessary. Inspect the output and OCI Console to confirm both are **Running** with the expected ADs and private IPs.
+All three VMs may launch concurrently and use the same public key. Generating additional key pairs is unnecessary. Inspect the output and OCI Console to confirm all three are **Running** with the expected ADs and private IPs.
 
 ### Terraform files
 
@@ -196,16 +216,17 @@ Both VMs may launch concurrently and use the same public key. Generating a new k
 | `provider.tf` | Region and OCI profile |
 | `variables.tf` | Input definitions and validation |
 | `terraform.tfvars.example` | All attendee settings; copy to `terraform.tfvars` |
-| `main.tf` | Existing-resource lookups and two VM resources |
+| `main.tf` | Existing-resource lookups and three VM instances |
 | `outputs.tf` | Instance IDs, placement, private IPs, states, and image OCID |
 
 ### Verify SSH access (either deployment option)
 
-Use the same private key for both VMs. The following commands require an existing routed private connection to the subnet:
+Use the same private key for all three VMs. The following commands require an existing routed private connection to the subnet:
 
 ```bash
 ssh -i ~/.ssh/p01-vm-key ubuntu@10.0.1.2
 ssh -i ~/.ssh/p01-vm-key ubuntu@10.0.1.3
+ssh -i ~/.ssh/p01-vm-key ubuntu@10.0.1.4
 ```
 
 For the Console path, substitute the downloaded private-key filename and, on Linux/macOS, restrict it with `chmod 600 /path/to/private-key`. Confirm host-key fingerprints through a trusted channel before accepting them.
@@ -214,17 +235,17 @@ If your instructor supplies a jump host, substitute its reachable address, user,
 
 Keep attendee settings in `terraform.tfvars`, separate from resource definitions. Keep credentials, private keys, state, and saved plans out of GitHub. Commit the Terraform source, sanitized example parameters, and reviewed `.terraform.lock.hcl`. Use a separate working directory and state for each lab and attendee.
 
-**Validation scope:** Only README files were supplied for this update. The Terraform source and a live OCI deployment were not validated during standardization. Run the checks and review the plan in your workshop environment.
+**Validation scope:** Only the README was supplied for this update. The Terraform source was not modified or validated, and no live OCI deployment was tested. Update the Terraform inputs and, if needed, resource definitions to include VM 3, then run the checks and review the plan in your workshop environment.
 
 ## Troubleshooting
 
 | Symptom | Check |
 | --- | --- |
-| AD2 absent | Use a region with at least two ADs and recreate the prerequisite network there if necessary. Do not silently place both VMs in AD1. |
+| AD2 or AD3 absent | Use a region with at least three ADs and recreate the prerequisite network there if necessary. Keep VM 1 in AD1, VM 2 in AD2, and VM 3 in AD3. |
 | Out of host capacity | Retry later or ask the instructor to approve a placement/shape change. |
 | Image not found | Verify the exact image name, region, and E5 compatibility. Check the official image page for a regional OCID. Change the configured image only with an intentional workshop decision. |
 | VCN/subnet lookup fails | Verify region, network compartment, exact display names, permissions, and duplicate names. |
-| Subnet unavailable in AD2 | Confirm it is regional; an AD1-specific subnet cannot be shared across ADs. |
+| Subnet unavailable in AD2 or AD3 | Confirm it is regional; an AD1-specific subnet cannot be shared across ADs. |
 | IP already in use | Remove the conflicting lab deployment or choose an approved unused IP. Do not run both procedures against the same IPs. |
 | Terraform cannot read key file | Generate the key before planning and check the `.pub` path on the Terraform execution machine. |
 | SSH timeout | Verify private routing, bastion/session status, TCP 22 security rules, and guest SSH service. NAT alone is insufficient. |
@@ -241,7 +262,7 @@ terraform plan -destroy -out=vm-lab-destroy.tfplan
 terraform apply vm-lab-destroy.tfplan
 ```
 
-Review that only this lab's two instances are removed. Boot volumes created with these instances are deleted by the provider's default termination behavior. Any manually attached or separately preserved volumes require separate review.
+Review that only this lab's three instances are removed. Boot volumes created with these instances are deleted by the provider's default termination behavior. Any manually attached or separately preserved volumes require separate review.
 
 For **Console-created instances**, select each instance under **Compute → Instances**, choose **Terminate**, and enable deletion of its boot volume if no longer needed. Review remaining block volumes. Keep the prerequisite compartment and networking until all dependent labs are finished.
 
