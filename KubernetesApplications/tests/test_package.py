@@ -4,6 +4,7 @@ import importlib.util
 import io
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -17,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 import manifests
 import workshop
+import publish
 spec = importlib.util.spec_from_file_location('runtime_db', ROOT / 'runtime/db.py')
 db = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(db)
@@ -24,7 +26,7 @@ spec.loader.exec_module(db)
 
 def values():
     v = dict(line.split('=', 1) for line in (ROOT / 'templates/settings.env.example').read_text().splitlines() if line and not line.startswith('#'))
-    v.update(KUBE_CONTEXT='test-context', OCIR_NAMESPACE='testnamespace', OCIR_USERNAME='Default/test@example.com',
+    v.update(KUBE_CONTEXT='test-context', IMAGE_PULL_AUTH='private', APP_IMAGE='fra.ocir.io/testnamespace/oci-ai-k8s-streamlit:workshop-v1', PROXY_IMAGE='fra.ocir.io/testnamespace/oci-ai-k8s-litellm:workshop-v1', OCIR_LOGIN='testnamespace/Default/test@example.com',
         DB_HOST='primary.example.test', DB_ADMIN='pgadmin', APP_PUBLIC_HOST='lb.example.test', OCI_COMPARTMENT_ID='ocid1.compartment.test',
         OCI_USER='ocid1.user.test', OCI_TENANCY='ocid1.tenancy.test', OCI_FINGERPRINT=':'.join(['ab'] * 16))
     return v
@@ -39,6 +41,13 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(self.all['streamlit-service']['spec']['externalTrafficPolicy'], 'Cluster')
         self.assertEqual(self.all['streamlit-service']['spec']['ports'][0]['nodePort'], 30080)
         self.assertEqual(self.all['litellm-service']['spec']['ports'][0]['port'], 4000)
+
+    def test_public_images_have_no_pull_secret_on_any_pod(self):
+        config = values()
+        config['IMAGE_PULL_AUTH'] = 'public'
+        for obj in manifests.all_manifests(config).values():
+            if obj['kind'] in ['Job', 'Deployment']:
+                self.assertNotIn('imagePullSecrets', obj['spec']['template']['spec'])
 
     def test_one_replica_and_recreate(self):
         for name in ['streamlit-deployment', 'litellm-deployment']:
@@ -190,6 +199,118 @@ class InstallerTests(unittest.TestCase):
             workshop.create_app_key(values(), cluster)
             cluster.exec_proxy.assert_not_called()
             cluster.secret.assert_called_once_with('streamlit-auth', data)
+
+
+class PublishingTests(unittest.TestCase):
+    def config(self):
+        return dict(REGISTRY='fra.ocir.io', OCIR_NAMESPACE='publisher', OCIR_USERNAME='Default/instructor',
+            APP_REPOSITORY='workshop-app', PROXY_REPOSITORY='workshop-proxy', IMAGE_TAG='v1', IMAGE_PULL_AUTH='public')
+
+    def test_public_participant_never_needs_registry_token(self):
+        config = values()
+        config['IMAGE_PULL_AUTH'] = 'public'
+        with patch.object(workshop.getpass, 'getpass') as prompt, patch.object(workshop, 'private_write') as write, redirect_stdout(io.StringIO()):
+            workshop.registry_login(config)
+        prompt.assert_not_called()
+        write.assert_not_called()
+
+    def test_public_prepare_does_not_require_builder_auth_file(self):
+        config = values()
+        config['IMAGE_PULL_AUTH'] = 'public'
+        public_bytes = b'test-public-der'
+        config['OCI_FINGERPRINT'] = ':'.join(re.findall('..', workshop.hashlib.md5(public_bytes).hexdigest()))
+        with tempfile.TemporaryDirectory() as folder, patch.object(workshop, 'ROOT', Path(folder)), patch.object(workshop, 'LOCAL', Path(folder)/'local'), patch.object(workshop, 'preflight'), patch.object(workshop.ssl, 'create_default_context'), patch.object(workshop.subprocess, 'run', return_value=SimpleNamespace(returncode=0, stdout=public_bytes)), patch.object(workshop.getpass, 'getpass', side_effect=['test-db-password', 'test-db-password']), redirect_stdout(io.StringIO()):
+            local = Path(folder)/'local'
+            local.mkdir()
+            (local/'oci-api-key.pem').write_text('dummy-key')
+            (local/'postgres-ca.pem').write_text('dummy-ca')
+            (Path(folder)/'proxy').mkdir()
+            (Path(folder)/'proxy/config.yaml').write_text('model_list: []')
+            cluster = MagicMock()
+            cluster.get.return_value = None
+            workshop.prepare(config, cluster)
+            self.assertEqual([c.args[0] for c in cluster.secret.call_args_list], ['litellm-auth', 'oci-api-key'])
+            self.assertFalse((local/'registry-auth.json').exists())
+
+    def test_public_release_requires_anonymous_registry_access(self):
+        ref = 'fra.ocir.io/publisher/app@sha256:'+'a'*64
+        with patch.object(publish, 'run', return_value=SimpleNamespace(returncode=1)) as run:
+            with self.assertRaises(SystemExit): publish.verify_remote(ref, 'public', Path('/unused/auth.json'))
+        self.assertIn('--no-creds', run.call_args.args[0])
+        self.assertNotIn('--authfile', run.call_args.args[0])
+
+    def test_build_explicitly_targets_amd64_and_isolates_imports(self):
+        builder = MagicMock()
+        builder.call.return_value.stdout = json.dumps([{'Os':'linux', 'Architecture':'amd64'}])
+        with redirect_stdout(io.StringIO()): publish.build_one(builder, 'APP', 'registry/app:v1')
+        build = builder.call.call_args_list[0].args
+        self.assertEqual(build[build.index('--platform')+1], 'linux/amd64')
+        self.assertIn('--layers=false', build)
+        check = builder.call.call_args_list[-1].args
+        self.assertEqual(check[0], 'run')
+        self.assertIn('--network=none', check)
+
+    def test_digest_validation_and_repository_binding(self):
+        ref = 'fra.ocir.io/publisher/app:v1'
+        self.assertEqual(publish.digest_reference(ref, 'sha256:'+'a'*64), ref.rsplit(':',1)[0]+'@sha256:'+'a'*64)
+        with self.assertRaises(SystemExit): publish.digest_reference(ref, 'invalid')
+        with patch.object(publish, 'run', return_value=SimpleNamespace(returncode=0, stdout=json.dumps({'Os':'linux','Architecture':'arm64','Digest':'sha256:'+'a'*64}))):
+            with self.assertRaises(SystemExit): publish.verify_remote(ref.rsplit(':',1)[0]+'@sha256:'+'a'*64, 'public', Path('auth'))
+
+    def test_store_rejects_home_and_symlink_and_scopes_every_podman_call(self):
+        with patch.dict(publish.os.environ, {'WORKSHOP_BUILD_ROOT':'/home/user/.local/share/containers/storage'}):
+            with self.assertRaises(SystemExit): publish.Builder()
+        with tempfile.TemporaryDirectory(prefix='oci-ai-k8s.', dir='/tmp') as folder:
+            folder = str(Path(folder).absolute())
+            with patch.dict(publish.os.environ, {'WORKSHOP_BUILD_ROOT':folder}), patch.object(publish, 'run') as run:
+                builder = publish.Builder()
+                builder.call('image', 'prune', '-a', '-f')
+                command = run.call_args.args[0]
+                self.assertEqual(command[command.index('--root')+1], folder+'/storage')
+                self.assertIn('--storage-opt=overlay.mount_program=/usr/bin/fuse-overlayfs', command)
+                self.assertEqual(run.call_args.kwargs['env']['TMPDIR'], folder+'/tmp')
+            link = Path(folder)/'link'
+            link.symlink_to(folder)
+            with patch.dict(publish.os.environ, {'WORKSHOP_BUILD_ROOT':str(link)}):
+                with self.assertRaises(SystemExit): publish.Builder()
+
+    def test_failed_second_build_preserves_release_and_cleans_token(self):
+        token = 'do-not-print-this-token'
+        with tempfile.TemporaryDirectory() as folder, patch.object(publish, 'ROOT', Path(folder)), patch.object(publish.getpass, 'getpass', return_value=token), patch.object(publish, 'build_one') as build, patch.object(publish, 'verify_remote'), redirect_stdout(io.StringIO()):
+            root = Path(folder)
+            (root/'images.env').write_text('old-release')
+            builder = MagicMock()
+            builder.root = root
+            events = []
+            def execute(*args, **kwargs):
+                events.append(args[0])
+                if args[0] == 'push': Path(args[args.index('--digestfile')+1]).write_text('sha256:'+'a'*64)
+            builder.call.side_effect = execute
+            def building(_, name, reference):
+                events.append('build-'+name)
+                if name == 'PROXY': raise SystemExit('simulated second build failure')
+            build.side_effect = building
+            with self.assertRaises(SystemExit): publish.build_push(self.config(), builder)
+            self.assertEqual((root/'images.env').read_text(), 'old-release')
+            self.assertEqual(events, ['login','build-APP','push','image','build-PROXY'])
+            self.assertFalse((root/'local/publisher-auth.json').exists())
+            login = builder.call.call_args_list[0]
+            self.assertNotIn(token, ' '.join(login.args))
+            self.assertEqual(login.kwargs['input'], token+'\n')
+
+    def test_release_uses_publisher_refs_without_touching_participant_db_settings(self):
+        with tempfile.TemporaryDirectory() as folder, patch.object(workshop, 'ROOT', Path(folder)), redirect_stdout(io.StringIO()):
+            path = Path(folder)
+            config = (ROOT/'templates/settings.env.example').read_text()
+            (path/'settings.env').write_text(config.replace('DB_NAME=litellm_k8s', 'DB_NAME=my_database'))
+            release = 'APP_IMAGE=fra.ocir.io/publisher/app@sha256:'+'a'*64+'\nPROXY_IMAGE=fra.ocir.io/publisher/proxy@sha256:'+'b'*64+'\nIMAGE_PULL_AUTH=public\n'
+            (path/'images.env').write_text(release)
+            workshop.use_published_images()
+            result = (path/'settings.env').read_text()
+            self.assertIn('DB_NAME=my_database', result)
+            self.assertIn('IMAGE_PULL_AUTH=public', result)
+            self.assertIn('APP_IMAGE=fra.ocir.io/publisher/app@sha256:', result)
+            self.assertEqual((path/'settings.env').stat().st_mode & 0o777, 0o600)
 
 
 if __name__ == '__main__': unittest.main()

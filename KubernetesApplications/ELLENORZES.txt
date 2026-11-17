@@ -5,19 +5,29 @@ Cél: meglévő Basic OKE v1.37.1, managed amd64 node-ok, Cloud Shell privát AP
 A résztvevő által bemásolt Cloud Shell-kimenet alapján a privát API-elérés működik, három Ready/amd64/VM.Standard.E5.Flex node látható, és nincs meglévő IngressClass, Ingress vagy alkalmazás LoadBalancer Service. Ez nem a csomag telepítésének tesztje.
 
 Elvégzett helyi ellenőrzések:
-- 18 offline teszt sikeres: szigorú TLS/URL-kódolás, konfigurálható DB-nevek, átmeneti SET jog visszaállítása CREATE DATABASE hiba után, csak olvasó DB-ellenőrzés, TLS hiányának visszautasítása, NodePort/ClusterIP elválasztás, Cluster forgalompolitika, egy-egy példány, nem root podok, Secret-mount jogosultság, adminjelszó kizárólag az init Jobban, app/proxy credentialök szétválasztása, képletöltési Secret, díjmentes probe útvonalak, Jobok automatikus újrapróbálásának tiltása, namespace/context hatókör, meglévő Secret megőrzése, titkos helyi fájl 0600 jogosultsága, redaktált hiba, bizonytalan kulcslétrehozás blokkolása és meglévő appkulcs újrafelhasználása.
+- Az eredeti 18 offline teszt és 9 további kiadási teszt, összesen 27 teszt sikeres: szigorú TLS/URL-kódolás, konfigurálható DB-nevek, átmeneti SET jog visszaállítása CREATE DATABASE hiba után, csak olvasó DB-ellenőrzés, TLS hiányának visszautasítása, NodePort/ClusterIP elválasztás, Cluster forgalompolitika, egy-egy példány, nem root podok, Secret-mount jogosultság, adminjelszó kizárólag az init Jobban, app/proxy credentialök szétválasztása, képletöltési Secret, díjmentes probe útvonalak, Jobok automatikus újrapróbálásának tiltása, namespace/context hatókör, meglévő Secret megőrzése, titkos helyi fájl 0600 jogosultsága, redaktált hiba, bizonytalan kulcslétrehozás blokkolása és meglévő appkulcs újrafelhasználása.
 - Python források és a Bash telepítő szintaxisa ellenőrizve.
 - A guide parancsblokkjai Bash-szintaktikailag ellenőrizve; helyi dokumentumhivatkozások érvényesek.
-- A konfigurációparsert és a tényleges renderelőt mesterséges adatokkal futtattuk: 8 Kubernetes JSON manifest generálható. A buildhez még hiányzó KUBE_CONTEXT elfogadott, a cluster-műveletekhez kötelező.
+- A konfigurációparsert és a tényleges renderelőt mesterséges adatokkal futtattuk: 8 Kubernetes JSON manifest generálható. A képcímek átvételéhez és a privát registry-loginhoz még hiányzó KUBE_CONTEXT elfogadott, a cluster-műveletekhez kötelező.
 - A Dockerfile-ok csak alkalmazás-/runtime-forrásokat másolnak; whitelist alapú .dockerignore kizárja a helyi credentialöket.
 - A csomag nem függ a VM-es Applications könyvtártól, /home/ubuntu útvonaltól vagy a fejlesztő workbench könyvtárától.
 
 Még élő környezetben ellenőrizendő:
-- A két konténerkép teljes Podman-buildje és OCIR push/pullja. A helyi fejlesztői környezetben nincs Podman/Docker futtató; kép-buildet nem állítunk sikeresnek.
+- A két teljes alkalmazáskép Cloud Shell buildje és OCIR push/pullja, különösen a teljes LiteLLM-build helyigénye. A felhasználó elkülönített /tmp Podman-tárhelyről sikeresen futtatott Alpine tesztkonténert x86_64 kimenettel; ez még nem az alkalmazásképek buildtesztje.
 - Kubernetes API-szerveres dry-run, ütemezés, tényleges podindulás és a Prisma-kliens futása a saját képben.
 - PostgreSQL bootstrap/verify-full kapcsolat és LiteLLM sémamigráció a cél DB-n. A DB-bootstrap SQL-ágakat offline helyettesített kapcsolattal ellenőriztük.
 - OCI API-kulcs tényleges modelljogosultsága, modellhívás, pozitív költség és konkrét spend sor.
 - A meglévő LB → worker NodePort → Streamlit útvonal, HTTP/WebSocket és böngészős munkamenet.
-- Cloud Shell tárhely- és buildkapacitás az adott sessionben.
+- A résztvevő Cloud Shellnek már nem kell buildkapacitás, Docker/Podman vagy AMD64 architektúra. A worker node-ok registry-elérését továbbra is élőben kell ellenőrizni.
 
 A csomag készítésekor nem történt cluster-/OCI-módosítás, képfeltöltés, adatbázis-művelet, fizetős modellhívás vagy Git-push. Az új csomagot a felhasználó másolja majd a repo KubernetesApplications könyvtárába. Nem tartalmaz tényleges jelszót, API-kulcsot, registry tokent vagy kubeconfigot.
+
+Átalakítás közös, előre buildelt nyilvános képekre:
+- Külön tools/publish.py és PUBLISH.hu.md: egyszeri oktatói Cloud Shell Podman build/push, --platform linux/amd64; minden Podman-parancs elkülönített /tmp root/runroot/overlay/fuse tárhelyet kap. Képenként build, architektúra/importpróba, push, anonim digestellenőrzés, majd csak az ideiglenes képtár ürítése következik.
+- A publisher nem függ a résztvevő settings.env, DB- vagy GenAI-hitelesítőitől. Az oktató tokenje stdin útján jut a podman login parancshoz.
+- Sikeres két push és skopeo --no-creds registry-ellenőrzés után images.env tartalmazza az ellenőrzött digest-hivatkozásokat. Addig kifejezett NOT_PUBLISHED helyőrző állítja meg a résztvevőket.
+- A nyilvános résztvevői manifestekben nincs imagePullSecrets, a prepare nem vár registry-auth.json fájlt. Privát alternatíva külön registry-login művelettel maradt, Cloud Shell-es build nélkül.
+- Az új offline tesztek lefedik a public mód Secret- és tokenmentességét, a prepare régi builder-auth-függőségének megszűnését, az explicit AMD64 buildet, izolált importpróbát, repositoryhoz illő digestet, második build hibájánál a korábbi kiadás megőrzését és a token elhagyását az argumentumokból, az anonim hozzáférés kötelező ellenőrzését, valamint a kiadási képcímek átvételét a résztvevő DB-beállításainak megőrzésével.
+- Nem futott képfeltöltés, láthatóság-módosítás, repository-létrehozás vagy clustertelepítés. A felhasználó jóváhagyta a két új workshop-kép nyilvános közzétételét; a fra.ocir.io/frgmw9rkvlkd cél megerősítve. A publikáló OCI-username és a Public repositoryk még ellenőrizendők. Docker Desktopot nem használunk.
+
+A Cloud Shell kiadás új offline tesztje ellenőrzi a home alatti Podman store visszautasítását, a buildtárhely tulajdonosának/jogosultságainak és symlinkmentességének ellenőrzését, a Podman-parancsok explicit tárhelyét és TMPDIR értékét. A részleges kiadás tesztje lefedi az első kép feltöltés/takarítás sorrendjét, a korábbi images.env megőrzését és az átmeneti authfájl eltávolítását hiba esetén. Sikertelen futás újraindításakor mindkét képet újrabuildeli.
