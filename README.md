@@ -32,7 +32,7 @@ Resources can incur charges while provisioned. Review the target configuration i
 | 5 | **PostgreSQL** | A private PostgreSQL database system with two database nodes. | [PostgreSQL](./PostgreSQL/) |
 | 6 | **OKE** | An OKE cluster with a public Kubernetes API endpoint and three private worker nodes. | [OKE](./OKE/) |
 
-Start with **Compartment**, then **Network**. The later labs reuse the compartment and network; the load balancer also requires the two web VMs. Open each folder's README for its prerequisites, target configuration, deployment steps, troubleshooting, and Oracle documentation references.
+Start with **Compartment**, then **Network**. The later labs reuse the compartment and network; the **Load Balancer** also requires the two web **VMs**. Open each folder's README for its prerequisites, target configuration, deployment steps, troubleshooting, and Oracle documentation references.
 
 ## Target architecture
 
