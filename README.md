@@ -38,13 +38,9 @@ Start with **Compartment**, then **Network**. The later labs reuse the compartme
 
 The diagram shows the planned infrastructure in **Frankfurt**, inside the lab compartment. Subnets are regional; availability domain placement is shown on the compute and database components where specified.
 
-
+![OCITestDriveBudapest architecture showing the compartment, VCN, three regional subnets, public load balancer, private Ubuntu VMs, PostgreSQL, OKE, and gateways](./ocitestdrivebudapest-architecture.png)
 
 [Download the architecture diagram (PNG)](./ocitestdrivebudapest-architecture.png)
-
-Solid blue arrows show configured web traffic. Purple dashed lines show the OKE control relationship; green dashed arrows show outbound connectivity. The OKE worker pool belongs to the OCI-managed cluster shown above the VCN. AD labels describe resource placement within regional subnets.
-
-The diagram uses custom service symbols. Oracle’s official [OCI Architecture Diagram Toolkit](https://docs.oracle.com/en-us/iaas/Content/General/Reference/graphicsfordiagrams.htm) downloads were unavailable while preparing this version; official toolkit icons are therefore not embedded.
 
 Use the parameters in each lab as the source of truth for exact resource names, images, supported versions, IP addresses, and availability domain identifiers. Check that private IP addresses are available and not reserved by OCI before assigning them.
 
