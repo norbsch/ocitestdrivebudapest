@@ -56,7 +56,7 @@ All editable Terraform settings are collected in `terraform/terraform.tfvars.exa
 | Database nodes | `2`: one primary and one read replica | `node_count` |
 | Performance tier | 75K IOPS | `storage_iops = 75000` |
 | Data placement | Availability Domain-specific | `is_regionally_durable = false` |
-| Availability domain for storage | `sgUC:EU-FRANKFURT-1-AD-1` | `availability_domain` |
+| Availability domain for storage | `GsUS:EU-FRANKFURT-1-AD-1` | `availability_domain` |
 | Shape | `PostgreSQL.VM.Standard.E5.Flex` | `shape` |
 | OCPUs per node | `2` | `ocpu_count` |
 | Memory per node | `16 GB` | `memory_size_in_gbs` |
@@ -103,7 +103,7 @@ The selected AD controls AD-local storage placement. For regional storage, set `
 ### 3. Configure storage and hardware
 
 1. Set **Node count** to **2** and **Performance tier** to **75,000 IOPS**.
-2. Choose **Availability Domain-specific** placement and AD **sgUC:EU-FRANKFURT-1-AD-1**.
+2. Choose **Availability Domain-specific** placement and AD **GsUS:EU-FRANKFURT-1-AD-1**.
 3. Under hardware, select **AMD**, choose the E5 flexible PostgreSQL shape, then set **2 OCPUs** and **16 GB memory** per node. The Console may display the shape as `VM.Standard.E5.Flex` within the PostgreSQL service.
 4. Use the service's default compatible database configuration and extensions.
 
