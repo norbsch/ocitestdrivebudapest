@@ -33,8 +33,6 @@ Resources can incur charges while provisioned. Review the target configuration i
 | 5 | **PostgreSQL** | A private PostgreSQL database system with two database nodes. | [PostgreSQL](./PostgreSQL/) |
 | 6 | **OKE** | An OKE cluster with a public Kubernetes API endpoint and three private worker nodes. | [OKE](./OKE/) |
 
-> **Repository paths:** This README assumes the root folders are named `Compartment`, `Network`, `VM`, `LoadBalancer`, `PostgreSQL`, and `OKE`. Folder names are case-sensitive; adjust these relative links if the repository uses different names.
-
 Start with **Compartment**, then **Network**. The later labs reuse the compartment and network; the load balancer also requires the two web VMs. Open each folder's README for its prerequisites, target configuration, deployment steps, troubleshooting, and Oracle documentation references.
 
 ## Target architecture

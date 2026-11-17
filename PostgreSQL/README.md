@@ -52,7 +52,7 @@ All editable Terraform settings are collected in `terraform/terraform.tfvars.exa
 | --- | --- | --- |
 | Region | `eu-frankfurt-1` | `region` |
 | Database system name | `p01-postgresql` | `db_system_name` |
-| PostgreSQL major version | `17` | `db_version` |
+| PostgreSQL major version | `16` | `db_version` |
 | Database nodes | `2`: one primary and one read replica | `node_count` |
 | Performance tier | 75K IOPS | `storage_iops = 75000` |
 | Data placement | Availability Domain-specific | `is_regionally_durable = false` |
@@ -98,7 +98,7 @@ The selected AD controls AD-local storage placement. For regional storage, set `
 1. Open **Databases → PostgreSQL → DB Systems**.
 2. Select the lab compartment, then **Create PostgreSQL Database system**.
 3. Select **Create new Database system** and continue.
-4. Enter `p01-postgresql` as the name and select PostgreSQL major version **17**.
+4. Enter `p01-postgresql` as the name and select PostgreSQL major version **16**.
 
 ### 3. Configure storage and hardware
 
@@ -138,7 +138,7 @@ The selected AD controls AD-local storage placement. For regional storage, set `
    \q
    ```
 
-   Expect PostgreSQL 17, the selected administrator, database `postgres`, and `pg_is_in_recovery()` returning `false` on the primary. `\conninfo` should report an SSL connection. The database administrator is a managed-service administrator, without PostgreSQL superuser access.
+   Expect PostgreSQL 16, the selected administrator, database `postgres`, and `pg_is_in_recovery()` returning `false` on the primary. `\conninfo` should report an SSL connection. The database administrator is a managed-service administrator, without PostgreSQL superuser access.
 
 ## Option B - Deployment steps for Terraform
 
@@ -258,7 +258,6 @@ Check retained backups separately in OCI. Terraform destroys its database system
 ## Oracle documentation references
 
 - [Creating a PostgreSQL database system](https://docs.oracle.com/en-us/iaas/Content/postgresql/create-db.htm)
-- [PostgreSQL 17 support announcement](https://docs.oracle.com/en-us/iaas/releasenotes/postgresql/db-17.htm)
 - [Supported PostgreSQL shapes](https://docs.oracle.com/en-us/iaas/Content/postgresql/supported-shapes.htm)
 - [PostgreSQL performance tiers](https://docs.oracle.com/en-us/iaas/Content/postgresql/performance-tiers.htm)
 - [Getting started and prerequisites](https://docs.oracle.com/en-us/iaas/Content/postgresql/getting-started.htm)

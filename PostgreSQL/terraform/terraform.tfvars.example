@@ -5,7 +5,7 @@ compartment_ocid         = "ocid1.compartment.oc1..REPLACE_ME"
 network_compartment_ocid = null # Set an OCID if the network is in another compartment.
 
 db_system_name        = "p01-postgresql"
-db_version            = "17"
+db_version            = "16"
 node_count            = 2
 storage_iops          = 75000
 availability_domain   = "sgUC:EU-FRANKFURT-1-AD-1"
