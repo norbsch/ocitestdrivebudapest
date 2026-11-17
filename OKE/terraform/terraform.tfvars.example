@@ -1,0 +1,33 @@
+# Copy to terraform.tfvars. Set both compartment OCIDs and api_allowed_cidrs.
+region                 = "eu-frankfurt-1"
+config_file_profile    = "DEFAULT"
+compartment_id         = "ocid1.compartment.oc1..REPLACE_ME"
+network_compartment_id = "ocid1.compartment.oc1..REPLACE_ME"
+
+vcn_name           = "p01-vcn"
+api_subnet_name    = "p01-subnet-public-lb"
+lb_subnet_name     = "p01-subnet-public-lb"
+worker_subnet_name = "p01-subnet-private-vm"
+
+cluster_name          = "p01-oke"
+cluster_type          = "BASIC_CLUSTER"
+kubernetes_version    = "v1.37"
+cni_type              = "FLANNEL_OVERLAY"
+api_public_ip_enabled = true
+api_allowed_cidrs     = [] # REQUIRED: e.g. ["YOUR_ACTUAL_PUBLIC_IPV4/32"]
+pods_cidr             = "10.244.0.0/16"
+services_cidr         = "10.96.0.0/16"
+
+node_pool_name      = "p01-oke-pool-01"
+availability_domain = "sgUC:EU-FRANKFURT-1-AD-3"
+node_shape          = "VM.Standard.E5.Flex"
+node_ocpus          = 2
+node_memory_gbs     = 8
+node_count          = 3
+
+# Standard x86 OL8 OKE worker image, exact requested build date.
+# Version compatibility is additionally checked against node-pool-options.
+node_image_name_regex = "^Oracle-Linux-8\\.[0-9]+-2026\\.10\\.16-0-OKE-.*$"
+node_image_id         = "" # Optional exact regional OKE image OCID; overrides name matching.
+disable_legacy_imds   = true
+freeform_tags         = { Project = "OCITestDriveBudapest", Lab = "OKE" }
