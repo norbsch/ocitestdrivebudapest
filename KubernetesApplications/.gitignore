@@ -1,0 +1,8 @@
+settings.env
+local/
+**/__pycache__/
+*.pyc
+*.pem
+*.key
+*.pub
+.env

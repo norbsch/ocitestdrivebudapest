@@ -1,0 +1,3 @@
+litellm[proxy,extra_proxy]==1.108.4
+prisma==0.15.0
+psycopg[binary]>=3.2,<4
