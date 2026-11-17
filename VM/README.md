@@ -140,10 +140,15 @@ Run Terraform commands from this lab’s `terraform/` directory, alongside the e
 
 ### 1. Prepare authentication and tooling
 
-1. Install Terraform CLI **1.5 or newer, below 2.0**, plus OpenSSH (`ssh-keygen`).
-2. Configure OCI API-key authentication in `~/.oci/config` (for example using `oci setup config`). The profile must include your user, tenancy, fingerprint, API signing key path, and region. The API signing key authenticates Terraform; it is separate from the VM SSH key below.
-3. Obtain the tenancy OCID, lab compartment OCID, and network compartment OCID. If the network and VMs share a compartment, use the same compartment OCID for both inputs.
-4. Open a terminal in this lab's `terraform/` directory.
+Choose one of the following authentication methods and set the parameters in terraform.tfvars:
+
+- Local machine (auth = "APIKey"): Install Terraform CLI and configure an OCI API-signing-key profile in ~/.oci/config. Set oci_config_profile to the profile name, such as "DEFAULT". The profile must contain tenancy, user, fingerprint, and key_file. Register the matching public key with your OCI user and keep the private key outside the repository.
+
+- OCI Cloud Shell (auth = "InstancePrincipal"): Terraform CLI is already installed. Use Cloud Shell’s existing authentication environment; no API-signing-key profile is required. Omit oci_config_profile from terraform.tfvars.
+
+For this lab, set region to your tenancy’s home region.
+
+Obtain the tenancy OCID, lab compartment OCID, and network compartment OCID. If the network and VMs share a compartment, use the same compartment OCID for both inputs.
 
 ### 2. Generate one SSH key pair for all three VMs
 

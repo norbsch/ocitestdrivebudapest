@@ -42,7 +42,7 @@ For Option B – Terraform, choose one of the following authentication methods a
 
 - OCI Cloud Shell (auth = "InstancePrincipal"): Terraform CLI is already installed. Use Cloud Shell’s existing authentication environment; no API-signing-key profile is required. Omit oci_config_profile from terraform.tfvars.
 
-For this compartment lab, set region to your tenancy’s home region. Your OCI user must have permission to create compartments under the selected parent compartment.
+For this lab, set region to your tenancy’s home region. Your OCI user must have permission to create compartments under the selected parent compartment.
 
 ## Target configuration
 
