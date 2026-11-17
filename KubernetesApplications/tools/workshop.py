@@ -7,10 +7,8 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import platform
 import re
 import secrets
-import shutil
 import ssl
 import subprocess
 import time
@@ -42,23 +40,30 @@ def settings(require_context=True):
             key, sep, value = line.partition('=')
             if not sep or key != key.strip() or key in result: fail('Hibas vagy ismetelt settings.env sor.')
             result[key] = value.strip()
-    required = ['KUBE_CONTEXT', 'NAMESPACE', 'REGISTRY', 'OCIR_NAMESPACE', 'OCIR_USERNAME',
-        'APP_REPOSITORY', 'PROXY_REPOSITORY', 'IMAGE_TAG', 'NODE_PORT', 'APP_PUBLIC_HOST', 'APP_PUBLIC_PORT', 'DB_HOST', 'DB_PORT',
+    required = ['KUBE_CONTEXT', 'NAMESPACE', 'APP_IMAGE', 'PROXY_IMAGE', 'IMAGE_PULL_AUTH',
+        'NODE_PORT', 'APP_PUBLIC_HOST', 'APP_PUBLIC_PORT', 'DB_HOST', 'DB_PORT',
         'DB_NAME', 'DB_USER', 'DB_ADMIN', 'OCI_REGION', 'OCI_COMPARTMENT_ID', 'OCI_USER',
         'OCI_TENANCY', 'OCI_FINGERPRINT', 'OCI_MODEL_ID']
     for key in required:
         if key == 'KUBE_CONTEXT' and not require_context: continue
         if not result.get(key) or 'REPLACE' in result[key]: fail('Toltsd ki: ' + key)
-    for key in ['NAMESPACE', 'APP_REPOSITORY', 'PROXY_REPOSITORY']:
+    for key in ['NAMESPACE']:
         if not re.fullmatch(r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?', result[key]): fail('Ervenytelen nev: ' + key)
     if result['NAMESPACE'] in ['default', 'kube-system', 'kube-public', 'kube-node-lease']:
         fail('Kulon workshop namespace-t valassz.')
     for key in ['DB_USER', 'DB_NAME', 'DB_ADMIN']:
         if not re.fullmatch(r'[a-z_][a-z0-9_]{0,62}', result[key]): fail('Egyszeru kisbetus PostgreSQL-nev szukseges: ' + key)
-    for key in ['REGISTRY', 'DB_HOST', 'APP_PUBLIC_HOST']:
+    for key in ['DB_HOST', 'APP_PUBLIC_HOST']:
         if not re.fullmatch(r'[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?', result[key]): fail('Csak hostnev, protokoll/port nelkul: ' + key)
-    if not re.fullmatch(r'[a-z0-9]+', result['OCIR_NAMESPACE']): fail('Ervenytelen OCIR tenancy namespace.')
-    if not re.fullmatch(r'[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}', result['IMAGE_TAG']): fail('Ervenytelen kep-tag.')
+    if result['IMAGE_PULL_AUTH'] not in ['public', 'private']: fail('IMAGE_PULL_AUTH: public vagy private.')
+    for key in ['APP_IMAGE', 'PROXY_IMAGE']:
+        value = result[key]
+        if '/' not in value or not re.fullmatch(r'[a-zA-Z0-9._:/@-]+', value) or '://' in value:
+            fail('Teljes registry/image:tag vagy registry/image@sha256:... hivatkozas szukseges: ' + key)
+    if result['IMAGE_PULL_AUTH'] == 'private':
+        if not result.get('OCIR_LOGIN') or 'REPLACE' in result['OCIR_LOGIN']: fail('Privat kepekhez toltsd ki: OCIR_LOGIN')
+        if len({ref.split('/')[0] for ref in images(result).values()}) != 1:
+            fail('A privat ket kep ugyanabban a registryben legyen.')
     if not 30000 <= int(result['NODE_PORT']) <= 32767: fail('A NodePort a 30000-32767 tartomanyban legyen.')
     if not 1 <= int(result['APP_PUBLIC_PORT']) <= 65535: fail('Ervenytelen publikus app-port.')
     if not 1 <= int(result['DB_PORT']) <= 65535: fail('Ervenytelen DB-port.')
@@ -66,8 +71,8 @@ def settings(require_context=True):
     return result
 
 
-def run(command, input=None, capture=True, check=True):
-    completed = subprocess.run(command, input=input, text=True,
+def run(command, input=None, capture=True, check=True, env=None):
+    completed = subprocess.run(command, input=input, text=True, env=env,
         stdout=subprocess.PIPE if capture else None, stderr=subprocess.PIPE if capture else None)
     if check and completed.returncode:
         # API/driver output can contain credentials; do not replay it.
@@ -155,25 +160,40 @@ def preflight(v, cluster):
     print('PASS: context, Ready amd64 node es NodePort ellenorizve.')
 
 
-def build_push(v):
-    if platform.machine().lower() not in ['x86_64', 'amd64']:
-        fail('A Cloud Shell Architecture legyen x86_64, majd inditsd ujra a sessiont.')
-    if not shutil.which('podman'): fail('A buildhez Podman szukseges; ezt a Cloud Shell biztositja.')
-    refs = images(v)
-    token = getpass.getpass('OCI Auth Token az OCIR-hez (nem API-kulcs / Console-jelszo): ')
+def use_published_images():
+    source = ROOT / 'images.env'
+    if not source.is_file(): fail('Az oktato meg nem tette kozze az images.env kiadasi fajlt.')
+    release = dict(line.split('=', 1) for line in source.read_text().splitlines() if line and not line.startswith('#'))
+    keys = ['APP_IMAGE', 'PROXY_IMAGE', 'IMAGE_PULL_AUTH']
+    if any(not release.get(k) or 'REPLACE' in release[k] for k in keys):
+        fail('A kepek meg nincsenek kiadva; elobb a helyi build/push es az images.env Git-frissitese kell.')
+    if release['IMAGE_PULL_AUTH'] not in ['public', 'private']: fail('Hibas kiadasi hitelesitesi mod.')
+    for key in ['APP_IMAGE', 'PROXY_IMAGE']:
+        if not re.fullmatch(r'[a-zA-Z0-9._:/@-]+', release[key]) or '/' not in release[key]: fail('Ervenytelen image ref.')
+    dest = ROOT / 'settings.env'
+    if not dest.is_file(): fail('Elobb masold le a templates/settings.env.example fajlt settings.env neven.')
+    lines = dest.read_text().splitlines()
+    for key in keys:
+        matches = [i for i, line in enumerate(lines) if line.startswith(key + '=')]
+        if len(matches) != 1: fail('A settings.env uj sablonja szukseges; hianyzo/ismetelt mezok.')
+        lines[matches[0]] = key + '=' + release[key]
+    dest.write_text('\n'.join(lines) + '\n')
+    dest.chmod(0o600)
+    print('PASS: a kesz kiadas kepcimei atmasolva a settings.env fajlba; egyeb beallitas valtozatlan.')
+
+
+def registry_login(v):
+    if v['IMAGE_PULL_AUTH'] == 'public':
+        print('PASS: nyilvanos kepek; registry-token nem szukseges.')
+        return
+    token = getpass.getpass('OCIR olvasashoz hasznalhato sajat Auth Token: ')
     if not token: fail('Ures OCIR token.')
-    auth = {'auths': {v['REGISTRY']: {'auth': base64.b64encode((v['OCIR_NAMESPACE'] + '/' + v['OCIR_USERNAME'] + ':' + token).encode()).decode()}}}
+    registry = v['APP_IMAGE'].split('/')[0]
+    auth = {'auths': {registry: {'auth': base64.b64encode((v['OCIR_LOGIN'] + ':' + token).encode()).decode()}}}
     path = LOCAL / 'registry-auth.json'
     if path.exists(): path.unlink()
     private_write(path, auth)
-    for key, dockerfile in [('APP', 'app/Dockerfile'), ('PROXY', 'proxy/Dockerfile')]:
-        print('Kontener build: ' + key, flush=True)
-        run(['podman', 'build', '--authfile', str(path), '--platform', 'linux/amd64',
-             '-f', str(ROOT / dockerfile), '-t', refs[key], str(ROOT)], capture=False)
-        actual = run(['podman', 'image', 'inspect', '--format', '{{.Architecture}}', refs[key]]).stdout.strip()
-        if actual != 'amd64': fail('A build nem amd64 kepet eredmenyezett.')
-        run(['podman', 'push', '--authfile', str(path), refs[key]], capture=False)
-    print('PASS: ket kep az OCIR-ben. A registry-auth.json titkos fajl, ne tedd Gitbe.')
+    print('PASS: privat kep letoltesi hitelesitese mentve 0600 jogosultsaggal; build nem tortent.')
 
 
 def prepare(v, cluster):
@@ -188,7 +208,8 @@ def prepare(v, cluster):
     actual = ':'.join(re.findall('..', hashlib.md5(public.stdout).hexdigest()))
     if actual.lower() != v['OCI_FINGERPRINT'].lower(): fail('Az API-kulcs fingerprintje nem egyezik.')
     auth_path = LOCAL / 'registry-auth.json'
-    if not auth_path.is_file(): fail('Elobb futtasd a build-push muveletet az OCIR hitelesiteshez.')
+    if v['IMAGE_PULL_AUTH'] == 'private' and not auth_path.is_file():
+        fail('Privat kepekhez elobb futtasd a registry-login muveletet.')
     cluster.ensure_namespace()
     state_path = LOCAL / 'credentials.json'
     identity = {k: v[k] for k in ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER']}
@@ -205,7 +226,8 @@ def prepare(v, cluster):
     state_path.chmod(0o600)
     cluster.secret('litellm-auth', state['auth'])
     cluster.secret('oci-api-key', {'oci-api-key.pem': key_path.read_text()})
-    cluster.secret('ocir-pull', {'.dockerconfigjson': auth_path.read_text()}, 'kubernetes.io/dockerconfigjson', replace=True)
+    if v['IMAGE_PULL_AUTH'] == 'private':
+        cluster.secret('ocir-pull', {'.dockerconfigjson': auth_path.read_text()}, 'kubernetes.io/dockerconfigjson', replace=True)
     for name, data in [('workshop-config', {k: v[k] for k in ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_ADMIN',
         'OCI_REGION', 'OCI_COMPARTMENT_ID', 'OCI_USER', 'OCI_TENANCY', 'OCI_FINGERPRINT', 'OCI_MODEL_ID']}),
         ('postgres-ca', {'postgres-ca.pem': ca_path.read_text()}),
@@ -243,16 +265,17 @@ def render(v):
 def main(argv=None):
     os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['render', 'check', 'build-push', 'prepare', 'prepare-db', 'init-db',
+    parser.add_argument('action', choices=['render', 'check', 'registry-login', 'use-published-images', 'prepare', 'prepare-db', 'init-db',
         'deploy-litellm', 'create-app-key', 'deploy-app', 'verify', 'smoke', 'verify-spend', 'status'])
     args = parser.parse_args(argv)
-    v = settings(require_context=args.action != 'build-push')
+    if args.action == 'use-published-images': use_published_images(); return
+    v = settings(require_context=args.action != 'registry-login')
     LOCAL.mkdir(mode=0o700, exist_ok=True)
     LOCAL.chmod(0o700)
     cluster = Cluster(v)
     manifests = all_manifests(v)
     if args.action == 'render': render(v); return
-    if args.action == 'build-push': build_push(v); return
+    if args.action == 'registry-login': registry_login(v); return
     if args.action == 'check': preflight(v, cluster); return
     if args.action == 'prepare': prepare(v, cluster); return
     cluster.ensure_owned()

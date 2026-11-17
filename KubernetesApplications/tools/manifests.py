@@ -30,8 +30,10 @@ def pod(settings, name, image, proxy=False):
     spec = dict(automountServiceAccountToken=False, nodeSelector={'kubernetes.io/arch': 'amd64'},
         securityContext=dict(runAsNonRoot=True, runAsUser=10001, runAsGroup=10001,
                              fsGroup=10001, seccompProfile=dict(type='RuntimeDefault')),
-        imagePullSecrets=[dict(name='ocir-pull')], terminationGracePeriodSeconds=60,
+        terminationGracePeriodSeconds=60,
         containers=[container], volumes=[dict(name='tmp', emptyDir={})])
+    if settings['IMAGE_PULL_AUTH'] == 'private':
+        spec['imagePullSecrets'] = [dict(name='ocir-pull')]
     if proxy:
         container['envFrom'] = [dict(configMapRef=dict(name='workshop-config')),
                                dict(secretRef=dict(name='litellm-auth'))]
@@ -99,8 +101,7 @@ def job(settings, image, action):
 
 
 def images(settings):
-    prefix = settings['REGISTRY'] + '/' + settings['OCIR_NAMESPACE'] + '/'
-    return {key: prefix + settings[key + '_REPOSITORY'] + ':' + settings['IMAGE_TAG'] for key in ['APP', 'PROXY']}
+    return {'APP': settings['APP_IMAGE'], 'PROXY': settings['PROXY_IMAGE']}
 
 
 def all_manifests(settings):

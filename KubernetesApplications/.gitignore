@@ -6,3 +6,4 @@ local/
 *.key
 *.pub
 .env
+publish.env

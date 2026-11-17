@@ -1,6 +1,6 @@
 Elsődleges technikai források, ellenőrizve 2026-11-17.
 
-Cloud Shell: Podman, architektúra, tárhely
+Cloud Shell szolgáltatás és hálózati háttér
 https://docs.oracle.com/en-us/iaas/Content/API/Concepts/cloudshellintro.htm
 Cloud Shell Private Network Access
 https://docs.oracle.com/en-us/iaas/Content/API/Concepts/cloudshellintro_topic-Cloud_Shell_Networking.htm
@@ -28,3 +28,9 @@ LiteLLM díjmentes probe végpontok
 https://docs.litellm.ai/docs/proxy/health
 Streamlit külső böngészős cím és konfiguráció
 https://docs.streamlit.io/develop/api-reference/configuration/config.toml
+Oktatoi Cloud Shell Podman tarhely es TMPDIR
+https://docs.podman.io/en/latest/markdown/podman.1.html
+Podman 4.9 push --digestfile
+https://docs.podman.io/en/v4.9.3/markdown/podman-push.1.html
+Skopeo inspect --no-creds: anonim registry ellenorzes
+https://github.com/containers/skopeo/blob/main/docs/skopeo-inspect.1.md

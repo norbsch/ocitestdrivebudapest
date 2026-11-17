@@ -13,7 +13,7 @@ flowchart LR
     Proxy --> GenAI[OCI Generative AI HTTPS 443]
 ```
 
-Minden parancs **Cloud Shellben** fut. Nem kell SSH-val belépni a worker node-okra. A műveletekhez OCI-adminisztrátori és cluster-adminisztrációs hozzáférés szükséges; a jogosultságkiosztás az infrastruktúra előfeltétele.
+A résztvevői telepítés minden parancsa **Cloud Shellben** fut. Az oktató a két konténerképet előzetesen, külön oktatói Cloud Shell build/push lépésben teszi közzé; ezt a [PUBLISH.hu.md](PUBLISH.hu.md) írja le. Nem kell SSH-val belépni a worker node-okra. A műveletekhez OCI-adminisztrátori és cluster-adminisztrációs hozzáférés szükséges; a jogosultságkiosztás az infrastruktúra előfeltétele.
 
 A csomag különálló a VM-es `Applications` csomagtól. Javasolt Git-könyvtára: **`KubernetesApplications`**. A két csomag `.env`, `settings.env`, `local` és credential fájljait ne másold össze. Az alapértelmezett külön DB/user `litellm_k8s`. Ugyanaz az OCI DB system használható, de a VM-es LiteLLM adatbázisát ne add meg célként: legyen külön alkalmazás-adatbázis, külön felhasználóval.
 
@@ -29,46 +29,52 @@ A csomag különálló a VM-es `Applications` csomagtól. Javasolt Git-könyvtá
 6. Legyen meg a DB-admin felhasználó neve és jelszava. Ha már létezik az alkalmazás külön DB-je és felhasználója, azok adatai is kellenek. A PostgreSQL-admin és az OCI Console-felhasználó két külön hitelesítés.
 7. Kérd el a használható GenAI-modell OCI-azonosítóját, régióját és inference compartment OCID-ját.
 
-A node-oknak el kell érniük az OCIR-t a képek letöltéséhez; a podoknak a PostgreSQL-t és a GenAI-t. A buildhez a Cloud Shellből PyPI, Debian csomagtárak, a konténer-alapkép registryje és a Prisma letöltési végpontjai is legyenek elérhetők.
+A node-oknak el kell érniük az OCIR-t a képek letöltéséhez; a podoknak a PostgreSQL-t és a GenAI-t. A résztvevő Cloud Shellben nem buildel képet. A nyilvános, előre elkészített OCIR-képeket az OKE worker node-ok töltik le; az oktató gépén történő buildtől a résztvevő gépének architektúrája független.
 
-## 2 Cloud Shell architektúra és a forrás letöltése
+## 2 A telepítőcsomag letöltése Cloud Shellben
 
-A Cloud Shellben:
+A Cloud Shellben **AMD64 és ARM64 architektúra is használható**. Nem készül itt konténerkép, a Podman tárhelyét és régi képeit nem kell takarítani. A worker node-ok továbbra is AMD64-ek legyenek.
 
-```bash
-uname -m
-```
-
-**Elvárt:** `x86_64`. Ha `aarch64`, Cloud Shell **Actions → Architecture → x86_64 → Confirm and Restart**. Az AMD64 worker node-okhoz AMD64 képet készítünk.
-
-**Cloud Shell → Network → Public Network**, majd:
+**Cloud Shell → Network → Public Network**, vagy olyan privát hálózat, ahonnan a GitHub elérhető. Első letöltéskor:
 
 ```bash
 cd ~
 git clone https://github.com/norbsch/ocitestdrivebudapest.git
 cd ~/ocitestdrivebudapest/KubernetesApplications
 ls app proxy runtime tools scripts templates
-podman --version
 python3 --version
-df -h "$HOME" /tmp
 ```
 
-**Előfeltétel az oktatónak:** a repo legyen nyilvánosan olvasható, és ezt a külön csomagot előzetesen másolja be és töltse fel `KubernetesApplications` néven. A klónozás nem kér GitHub-felhasználónevet, tokent vagy SSH-kulcsot. Meglévő klónnál új klónozás helyett a repo gyökerében `git pull --ff-only origin main` kell; helyi módosításnál állj meg és egyeztesd a frissítést.
+Meglévő klón frissítésekor az előző blokk helyett:
 
-A Cloud Shell jelenleg Podmant biztosít, a `docker` név kompatibilitási wrapper lehet. Ezért a buildscript közvetlenül **Podmant** használ. A home tárhelye korlátozott; tárhelyhiba esetén ne töröld más munkád képeit vagy fájljait ellenőrzés nélkül. [Cloud Shell és architektúra](https://docs.oracle.com/en-us/iaas/Content/API/Concepts/cloudshellintro.htm)
+```bash
+cd ~/ocitestdrivebudapest
+git pull --ff-only origin main
+cd KubernetesApplications
+python3 --version
+```
 
-## 3 OCIR repositoryk és Auth Token
+**Elvárt:** a csomag letöltődött, Python 3 elérhető. Nem kell Docker vagy Podman a Cloud Shellbe. Helyi Git-módosítás miatti frissítési hibánál állj meg és egyeztess az oktatóval; saját konfigurációt ne törölj.
 
-**OCI Console → Container Registry**, a cluster régiójában és a saját compartmentben:
+**Előfeltétel az oktatónak:** a repo legyen nyilvánosan olvasható, a csomag és a sikeres képfeltöltés után létrehozott **`images.env`** kiadási fájl legyen már fent. A klónozás nem kér GitHub-felhasználónevet, tokent vagy SSH-kulcsot.
 
-1. **Create repository**, Standard repository, **Private** hozzáférés.
-2. Név: `oci-ai-k8s-streamlit`.
-3. Ugyanígy hozz létre egy második private repositoryt: `oci-ai-k8s-litellm`.
-4. A repo részleteinél jegyezd fel a tenancy **namespace** értékét. Ez az Object Storage namespace, nem a compartment neve vagy a tenancy OCID-ja.
+## 3 Az oktató által kiadott OCIR-képek ellenőrzése
 
-**Profil → My profile / User settings → Auth tokens → Generate token:** név például `oci-ai-k8s-ocir`. A tokent mentsd jelszókezelőbe; csak létrehozáskor látszik. Nem azonos az OCI API privát kulccsal és nem a Console-jelszó.
+```bash
+cat images.env
+```
 
-OCIR-felhasználónév: saját OCI-felhasználó, szükség esetén identity domainnel, például `Default/user@example.com`. A script elé teszi a tenancy namespace-t. A pontos domain/felhasználó formátumot a saját OCI-profilod alapján töltsd ki. [OCIR és imagePullSecret](https://docs.oracle.com/en-us/iaas/Content/Registry/Tasks/registrypullingimagesfromocir.htm)
+A fájlban három nem titkos kiadási adat legyen:
+
+- `APP_IMAGE`: az előre buildelt Streamlit-kép teljes OCIR-hivatkozása.
+- `PROXY_IMAGE`: az előre buildelt LiteLLM-kép teljes OCIR-hivatkozása.
+- `IMAGE_PULL_AUTH=public`: mindkét kép nyilvánosan letölthető.
+
+Az oktatói publisher a sikeres feltöltés után **`@sha256:...` digestes hivatkozásokat** ír ide, így mindenki pontosan ugyanazt a kiadást tölti le. Ne helyettesítsd bennük a kiadó tenancy namespace-ét a sajátoddal. A GenAI-hívás a később megadott saját OCI-hitelesítőiddel fut; a képek forrásának tenancyje ettől külön adat.
+
+Ha `REPLACE_NOT_PUBLISHED_YET` vagy más `REPLACE` érték maradt a fájlban, itt állj meg: az oktatónak előbb be kell fejeznie a [oktatói buildet és OCIR-publikálást](PUBLISH.hu.md), majd frissítenie a Git-repót.
+
+**Résztvevőként nem kell OCIR repositoryt vagy Auth Tokent létrehoznod.** [Nyilvános OCIR repositoryk](https://docs.oracle.com/en-us/iaas/Content/Registry/Tasks/registrycreatingarepository.htm)
 
 ## 4 A konfiguráció kitöltése
 
@@ -79,6 +85,7 @@ mkdir -p local
 chmod 700 local
 test -f settings.env || cp templates/settings.env.example settings.env
 chmod 600 settings.env
+python3 tools/workshop.py use-published-images
 nano settings.env
 ```
 
@@ -86,10 +93,9 @@ nano settings.env
 | --- | --- |
 | `KUBE_CONTEXT` | A 7. pontban kapott `kubectl config current-context` érték. Addig ez az egy mező lehet helyőrző. |
 | `NAMESPACE` | Külön név, alapból `oci-ai-k8s`. Meglévő idegen namespace-t nem vesz át a script. |
-| `REGISTRY` | Frankfurt esetén `fra.ocir.io`, protokoll nélkül. |
-| `OCIR_NAMESPACE`, `OCIR_USERNAME` | A 3. pont adatai; a username elé ne írd a tenancy namespace-t. |
-| `APP_REPOSITORY`, `PROXY_REPOSITORY` | A 3. pontban létrehozott két repository neve. |
-| `IMAGE_TAG` | Első telepítéshez `workshop-v1`. Új képtartalomhoz új taget használj. |
+| `APP_IMAGE`, `PROXY_IMAGE` | A `use-published-images` a kiadott `images.env` fájlból beállítja; nem kell átírni. |
+| `IMAGE_PULL_AUTH` | A workshopban `public`, automatikusan a kiadásból. |
+| `OCIR_LOGIN` | Nyilvános képeknél nem használjuk; a sablon helyőrzője maradhat. |
 | `NODE_PORT` | Alapból `30080`; a clusterben legyen szabad. Más értéknél az LB és a hálózati szabályok is ezt használják. |
 | `APP_PUBLIC_HOST`, `APP_PUBLIC_PORT` | A böngészőből használt LB hostname/IP és listener portja, alapból `8080`. Hostnév protokoll, útvonal és port nélkül. Ezt a Streamlit külső címként is megkapja; a pod saját portja továbbra is `8501`. |
 | `DB_HOST`, `DB_PORT` | Saját PostgreSQL primary FQDN, protokoll nélkül; port alapból `5432`. FQDN-t használj IP helyett a tanúsítvány-ellenőrzéshez. |
@@ -128,18 +134,15 @@ ls -l local/oci-api-key.pem local/postgres-ca.pem
 
 Meglévő megfelelő célfájlnál a hozzá tartozó `mv` sort hagyd ki. Ne másolj ide SSH-kulcsot, kubeconfigot vagy VM-es `proxy.env` fájlt. A build `.dockerignore` fájlja csak az app, proxy-requirements és runtime forrásfájlokat engedi a buildkörnyezetbe; credentialt nem másolunk a képekbe.
 
-## 6 A két konténerkép buildje és feltöltése
-
-A Cloud Shell hálózata itt **Public Network** legyen, vagy olyan privát hálózat, amelyről az összes buildfüggőség letölthető. A `KUBE_CONTEXT` mező ennél a buildlépésnél még maradhat helyőrző; a 7. pontban töltjük ki. A buildhez az OKE API elérése nem szükséges.
+## 6 A kész képek beállításának ellenőrzése
 
 ```bash
-cd ~/ocitestdrivebudapest/KubernetesApplications
-python3 tools/workshop.py build-push
+python3 tools/workshop.py use-published-images
 ```
 
-A script rejtve az **OCIR Auth Tokent** kéri. Készít két `linux/amd64` képet a mellékelt Dockerfile-okból, ellenőrzi az architektúrát, és feltölti a saját OCIR repositorykba. A proxy-kép a VM-es csomaggal egyező **LiteLLM 1.108.4** és **Prisma 0.15.0** verziót használja; a Prisma-kliens a build során készül el. Az app Streamlit **1.67.0**.
+**Elvárt:** `PASS: a kesz kiadas kepcimei atmasolva a settings.env fajlba; egyeb beallitas valtozatlan.` Ez helyi fájlművelet, nincs képletöltés vagy build a Cloud Shellben. A `KUBE_CONTEXT` mező ennél a lépésnél még lehet helyőrző; a 7. pontban töltjük ki.
 
-**Elvárt:** `PASS: ket kep az OCIR-ben.` A `local/registry-auth.json` titkos OCIR-hitelesítést tartalmaz; ne listázd a tartalmát és ne tedd Gitbe. Ebből készül a Kubernetes imagePullSecret.
+A képeket majd az OKE node-ok töltik le a podok ütemezésekor. Nyilvános képnél nincs OCIR-jelszókérés, és a manifestekben nincs `imagePullSecrets` hivatkozás. A saját OCI API-kulcsot és DB-jelszót a következő előkészítés külön, Kubernetes Secretként kezeli.
 
 ## 7 OKE-hozzáférés privát Cloud Shell hálózatról
 
@@ -179,7 +182,7 @@ A saját infrastruktúrában ellenőrizd a következő kapcsolatokat. A megfelel
 
 ## 9 Manifestek és Kubernetes Secretek előkészítése
 
-Ha a buildhez Public Networkre váltottál, most állj vissza a 7. pontban használt privát hálózatra.
+Ha a Git-frissítéshez Public Networkre váltottál, most állj vissza a 7. pontban használt privát hálózatra.
 
 ```bash
 cd ~/ocitestdrivebudapest/KubernetesApplications
@@ -192,7 +195,7 @@ A `local/rendered/*.json` fájlok natív Kubernetes-manifestek, `kubectl` által
 
 A `prepare` ellenőrzi az API-kulcs fingerprintjét és a CA-fájl olvashatóságát. Rejtve, kétszer kéri az **alkalmazás DB-felhasználójának jelszavát**. Új DB-usernél válassz új jelszót, meglévőnél annak jelenlegi jelszavát add meg.
 
-Létrejön a külön namespace, három ConfigMap és három Secret:
+Létrejön a külön namespace, három ConfigMap és két Secret:
 
 | Erőforrás | Tartalom / felhasználó |
 | --- | --- |
@@ -201,7 +204,6 @@ Létrejön a külön namespace, három ConfigMap és három Secret:
 | `postgres-ca` ConfigMap | Nyilvános DB CA-tanúsítvány |
 | `litellm-auth` Secret | DB-jelszó, generált LiteLLM master/salt és UI-hitelesítés; csak a proxy és DB-Jobok kapják |
 | `oci-api-key` Secret | OCI API privát kulcs; az app nem kapja meg |
-| `ocir-pull` Secret | Képletöltési hitelesítés |
 
 A script a generált adatokat a védett `local/credentials.json` fájlban is megőrzi. Újrafuttatáskor nem cseréli le a master/salt kulcsot és a DB-jelszót. Eltérő meglévő Secret esetén megáll. A `local` könyvtárról készíts védett mentést; elvesztésekor ne generálj vakon új kulcsokat. A Kubernetes Secret hozzáférését a cluster jogosultságai szabályozzák; a base64 kódolás önmagában nem titkosítás.
 
@@ -321,8 +323,8 @@ Elvárt: ugyanahhoz a call ID-hoz pozitív spend sor a PostgreSQL-ben. Ha még n
 
 A sémamigráció módosíthatja a táblákat. LiteLLM-verzióváltás előtt a DB gazdájával legyen egyeztetett mentés és visszaállítás; egy Deployment-image visszacserélése nem állítja vissza a DB sémáját.
 
-1. A saját forrásmódosítások után válassz új `IMAGE_TAG` értéket, például `workshop-v2`. Build/push a 6. pont szerint; ha hálózatot váltottál, utána vissza a privát OKE-elérésre.
-2. Ellenőrizd újra a contextet a 7. pont szerint.
+1. Az oktató a saját gépén új verziót buildel és publikál a `PUBLISH.hu.md` szerint, majd a friss `images.env` fájlt felteszi GitHubra. Résztvevőként nem buildelsz.
+2. Frissítsd a saját klónodat a 2. pont szerint. A `python3 tools/workshop.py use-published-images` paranccsal vedd át az új képhivatkozásokat. Utána állj vissza a privát hálózatra, és ellenőrizd a contextet a 7. pont szerint.
 3. Állítsd le az appot, majd a LiteLLM-et, és várd meg a podok leállását:
 
 ```bash
@@ -362,8 +364,7 @@ A naplót helyben nézd meg; credentialt, teljes Secretet, kubeconfigot és telj
 | --- | --- |
 | `localhost:8080` | Saját kubeconfig létrehozása és helyes `KUBECONFIG`, 7. pont. |
 | OKE API timeout | Aktív privát Cloud Shell hálózat, privát API-végpont, TCP/6443, útvonal. |
-| `ImagePullBackOff` | Az OCIR image/tag tényleg létezik-e; registry namespace/domain/username, Auth Token, `ocir-pull` Secret és node → OCIR elérés. Új tokenhez új `build-push`, majd `prepare`. |
-| Buildnél tárhelyhiba | `df -h`, `podman system df`; csak saját, már nem szükséges buildképeket törölj. Ne futtass általános prune parancsot más munkák ellenőrzése nélkül. |
+| `ImagePullBackOff` | A kiadott `images.env` pontos címei, mindkét repository Public hozzáférése és node → OCIR HTTPS/443 elérés. A nyilvános workshophoz nem kell token; az oktató ellenőrizze az anonim letöltést. |
 | `Pending` | Pod describe és events: szabad CPU/memória, amd64 node, taint, ResourceQuota, image méret / tárhely. |
 | DB timeout | A podhálózatból engedett DB-port, CNI/SNAT szerinti forrás és DNS, nem a régi VM engedélye. |
 | DB TLS hiba | Saját primary FQDN és ugyanahhoz a DB systemhez letöltött CA. Ne kapcsold ki a TLS-ellenőrzést. |
@@ -390,4 +391,14 @@ kubectl -n oci-ai-k8s get deployments,services,jobs
 kubectl delete namespace oci-ai-k8s
 ```
 
-Ez törli a namespace Kubernetes-erőforrásait, a Secreteket is. A külső PostgreSQL adatait, az OCI Load Balancert és az OCIR képeket nem törli. Ezek életciklusát külön kezeli az infrastruktúra gazdája. A `local` mentés credentialöket tartalmaz; a workshop után a saját titokkezelési rend szerint kezeld.
+Ez törli a namespace Kubernetes-erőforrásait, a Secreteket is. A külső PostgreSQL adatait, az OCI Load Balancert és az oktató által közösen kiadott OCIR-képeket nem törli. Ezek életciklusát külön kezeli az infrastruktúra gazdája. A `local` mentés credentialöket tartalmaz; a workshop után a saját titokkezelési rend szerint kezeld.
+
+## 19 Eltérő, privát registry használata
+
+Ez nem a nyilvános workshop menete. Ha az oktató egy másik kiadásnál privát képeket ad, az `images.env` fájlban `IMAGE_PULL_AUTH=private` szerepeljen. A résztvevő a `settings.env` `OCIR_LOGIN` mezőjébe a saját engedélyezett, teljes `tenancy-namespace/domain/username` registry-loginját írja, majd a 9. pont `prepare` művelete előtt futtatja:
+
+```bash
+python3 tools/workshop.py registry-login
+```
+
+Ez rejtve kéri a saját Auth Tokent, a `local/registry-auth.json` fájlba menti 0600 jogosultsággal, és a `prepare` ebből készíti az `ocir-pull` Secretet. Itt sincs Cloud Shell-es build. A publikáló feltöltésre jogosító tokenjét ne oszd meg a résztvevőkkel. A privát hozzáférést az infrastruktúra biztosítja.
