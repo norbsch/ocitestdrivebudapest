@@ -1,5 +1,6 @@
 # Copy to terraform.tfvars, then replace the compartment OCID.
 region                   = "eu-frankfurt-1"
+auth_method              = "InstancePrincipal"
 config_file_profile      = "DEFAULT"
 compartment_ocid         = "ocid1.compartment.oc1..REPLACE_ME"
 network_compartment_ocid = null # Set an OCID if the network is in another compartment.

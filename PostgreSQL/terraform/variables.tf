@@ -3,6 +3,16 @@ variable "region" {
   type        = string
 }
 
+variable "auth_method" {
+  description = "Authentication through an external OCI API key or security token profile."
+  type        = string
+  default     = "InstancePrincipal"
+  validation {
+    condition     = contains(["APIKey", "InstancePrincipal"], var.auth_method)
+    error_message = "auth must be APIKey or InstancePrincipal."
+  }
+}
+
 variable "config_file_profile" {
   description = "API-key profile in ~/.oci/config."
   type        = string

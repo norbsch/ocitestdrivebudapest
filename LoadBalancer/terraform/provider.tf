@@ -2,5 +2,6 @@
 # Keep API signing keys outside this repository.
 provider "oci" {
   region              = var.region
-  config_file_profile = var.config_file_profile
+  auth                = var.auth_method
+  config_file_profile = var.auth_method == "APIKey" ? var.config_file_profile : null
 }

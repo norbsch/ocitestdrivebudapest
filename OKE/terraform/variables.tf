@@ -1,5 +1,14 @@
 # Participant values belong in terraform.tfvars; defaults are centralized there.
 variable "region" { type = string }
+variable "auth_method" {
+  description = "Authentication through an external OCI API key or security token profile."
+  type        = string
+  default     = "InstancePrincipal"
+  validation {
+    condition     = contains(["APIKey", "InstancePrincipal"], var.auth_method)
+    error_message = "auth must be APIKey or InstancePrincipal."
+  }
+}
 variable "config_file_profile" { type = string }
 variable "compartment_id" { type = string }
 variable "network_compartment_id" { type = string }

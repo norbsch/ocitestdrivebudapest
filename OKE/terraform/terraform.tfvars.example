@@ -1,5 +1,6 @@
 # Copy to terraform.tfvars. Set both compartment OCIDs and api_allowed_cidrs.
 region                 = "eu-frankfurt-1"
+auth_method            = "InstancePrincipal"
 config_file_profile    = "DEFAULT"
 compartment_id         = "ocid1.compartment.oc1..REPLACE_ME"
 network_compartment_id = "ocid1.compartment.oc1..REPLACE_ME"
