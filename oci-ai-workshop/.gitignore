@@ -1,0 +1,10 @@
+deployment.env
+local/
+proxy/secrets/
+app/.env
+app/.venv/
+**/__pycache__/
+*.pem
+*.pub
+*.tgz
+proxy/.venv/

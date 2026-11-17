@@ -1,0 +1,18 @@
+[Unit]
+Description=LiteLLM OCI workshop
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/oci-ai-workshop
+Environment=HOME=/home/ubuntu
+ExecStart=/home/ubuntu/oci-ai-workshop/proxy/.venv/bin/python /home/ubuntu/oci-ai-workshop/tools/run_proxy.py
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

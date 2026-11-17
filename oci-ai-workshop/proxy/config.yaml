@@ -1,0 +1,25 @@
+model_list:
+  - model_name: oci-cohere
+    litellm_params:
+      model: os.environ/OCI_MODEL_ID
+      oci_region: os.environ/OCI_REGION
+      oci_compartment_id: os.environ/OCI_COMPARTMENT_ID
+      oci_user: os.environ/OCI_USER
+      oci_fingerprint: os.environ/OCI_FINGERPRINT
+      oci_tenancy: os.environ/OCI_TENANCY
+      oci_key_file: os.environ/OCI_KEY_FILE
+      oci_serving_mode: ON_DEMAND
+      max_tokens: 1000
+    model_info:
+      # Inherited demo estimate; confirm OCI price agreement before reporting costs.
+      # B108077: USD 0.0156 / 10,000 characters (input + output).
+      input_cost_per_character: 0.00000156
+      output_cost_per_character: 0.00000156
+litellm_settings:
+  request_timeout: 120
+  num_retries: 0
+  turn_off_message_logging: true
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+  trusted_proxy_ranges: []

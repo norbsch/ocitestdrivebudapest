@@ -1,0 +1,28 @@
+Minden érték a saját workshop-környezetedből kell.
+
+LITELLM_PRIVATE_IP =
+APP_01_PRIVATE_IP =
+APP_02_PRIVATE_IP =
+APP_BROWSER_URL =
+OCI_REGION (infrastruktúra) =
+OCI_COMPARTMENT (infrastruktúra) =
+VCN =
+CLOUD_SHELL_REGION =
+CLOUD_SHELL_PRIVATE_SUBNET =
+CLOUD_SHELL_NETWORK_DEFINITION = workshop-private-network
+CLOUD_SHELL_NSG = workshop-cloudshell-nsg
+LB_LISTENER_PROTOCOL_PORT =
+LB_BACKEND_01_PRIVATE_IP_PORT =
+LB_BACKEND_02_PRIVATE_IP_PORT =
+SSH_KEY_PATH (Cloud Shell) = ~/.ssh/oci-ai-workshop
+DB_HOST (primary FQDN) =
+DB_ADMIN =
+DB_CA_PATH (Cloud Shell) =
+OCI_API_KEY_PATH (Cloud Shell) =
+OCI_USER =
+OCI_TENANCY =
+OCI_FINGERPRINT =
+OCI_REGION (GenAI) =
+OCI_COMPARTMENT_ID (GenAI) =
+
+A jelszavakat a jelszókezelődbe írd, ne ebbe a fájlba.
