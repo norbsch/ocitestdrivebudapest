@@ -1,3 +1,14 @@
+variable "auth" {
+  description = "OCI authentication method: APIKey or InstancePrincipal."
+  type        = string
+  default     = "InstancePrincipal"
+
+  validation {
+    condition     = contains(["APIKey", "InstancePrincipal"], var.auth)
+    error_message = "auth must be APIKey or InstancePrincipal."
+  }
+}
+
 variable "oci_config_profile" {
   description = "Existing API-key profile name in ~/.oci/config."
   type        = string

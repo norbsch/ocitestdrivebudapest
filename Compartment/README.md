@@ -36,7 +36,13 @@ Use a name of 1–100 characters containing letters, numbers, periods, hyphens, 
 
 Choose **Option A or Option B** for this lab. Both produce the same target configuration. Do not deploy both against the same resources.
 
-For Option B, install Terraform CLI and configure an OCI API-signing-key profile in `~/.oci/config`. Use the tenancy home region for this lab. The profile needs `tenancy`, `user`, `fingerprint`, and `key_file`; register the matching public key with your OCI user and keep the private key outside the repository.
+For Option B – Terraform, choose one of the following authentication methods and set the parameters in terraform.tfvars:
+
+- Local machine (auth = "APIKey"): Install Terraform CLI and configure an OCI API-signing-key profile in ~/.oci/config. Set config_file_profile to the profile name, such as "DEFAULT". The profile must contain tenancy, user, fingerprint, and key_file. Register the matching public key with your OCI user and keep the private key outside the repository.
+
+- OCI Cloud Shell (auth = "InstancePrincipal"): Terraform CLI is already installed. Use Cloud Shell’s existing authentication environment; no API-signing-key profile is required. Omit config_file_profile from terraform.tfvars.
+
+For this compartment lab, set region to your tenancy’s home region. Your OCI user must have permission to create compartments under the selected parent compartment.
 
 ## Target configuration
 
