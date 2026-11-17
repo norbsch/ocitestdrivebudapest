@@ -1,0 +1,65 @@
+Technikai hivatkozások az oktatónak
+
+OCI API kulcs és OCID adatok
+https://docs.oracle.com/en-us/iaas/Content/API/Concepts/apisigningkey.htm
+
+OCI PostgreSQL kapcsolat és CA
+https://docs.oracle.com/en-us/iaas/Content/postgresql/connect-to-db.htm
+
+OCI PostgreSQL NSG hozzárendelés
+https://docs.oracle.com/en-us/iaas/Content/postgresql/update-db-nsg.htm
+
+VNIC és NSG hozzárendelés
+https://docs.oracle.com/en-us/iaas/Content/Network/Tasks/managingvnics_tasks-nsg.htm
+
+PostgreSQL 16 CREATE DATABASE és SET ROLE feltétel
+https://www.postgresql.org/docs/16/sql-createdatabase.html
+
+LiteLLM OCI API kulcsparaméterek
+https://docs.litellm.ai/docs/providers/oci
+
+LiteLLM 1.108.4 Python proxy és extra_proxy függőségek
+https://github.com/BerriAI/litellm/blob/v1.108.4/pyproject.toml
+
+Prisma TLS paraméterek
+https://docs.prisma.io/docs/orm/v6/overview/databases/postgresql
+
+Streamlit indítási paraméterek
+https://docs.streamlit.io/develop/api-reference/configuration/config.toml
+
+OCI SSH kulcspár létrehozása
+https://docs.oracle.com/en-us/iaas/Content/Compute/Tasks/managingkeypairs.htm
+
+OCI publikus SSH kulcs hozzáadása
+https://docs.oracle.com/en-us/iaas/Content/Compute/Tasks/addingusers.htm
+
+Streamlit szerver végpontok és WebSocket
+https://github.com/streamlit/streamlit/blob/develop/.claude/skills/understanding-streamlit-architecture/references/backend.md
+
+OCI Cloud Shell indítás, fájlfeltöltés és CLI hitelesítés
+https://docs.oracle.com/en-us/iaas/Content/API/Concepts/devcloudshellgettingstarted.htm
+
+OCI Cloud Shell Private Networking
+https://docs.oracle.com/en-us/iaas/Content/API/Concepts/cloudshellintro_topic-Cloud_Shell_Networking.htm
+
+Streamlit több példány, session affinity és közös cookie-aláíró titok
+https://docs.streamlit.io/develop/concepts/architecture/architecture
+https://docs.streamlit.io/develop/api-reference/configuration/config.toml
+
+OCI LB backend set és cookie persistence
+https://docs.oracle.com/en-us/iaas/Content/Balance/Tasks/managingbackendsets_topic-Creating_Backend_Sets.htm
+https://docs.oracle.com/en-us/iaas/Content/Balance/Reference/sessionpersistence.htm
+
+systemd ambient capabilities és portkötés nem root felhasználóval
+https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#AmbientCapabilities=
+
+GitHub repository klónozása HTTPS-en
+https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository
+
+PostgreSQL DB-bootstrap: tulajdonos és SET ROLE
+https://www.postgresql.org/docs/16/sql-createdatabase.html
+https://www.postgresql.org/docs/16/functions-info.html
+https://www.postgresql.org/docs/16/sql-grant.html
+
+Psycopg: kliensoldali SCRAM jelszótitkosítás
+https://www.psycopg.org/psycopg3/docs/api/pq.html#psycopg.pq.PGconn.encrypt_password
