@@ -1,147 +1,163 @@
-# Workshop-képek készítése Cloud Shellből és publikálása OCIR-be
+# Workshop-képek buildje külön OCI VM-en és publikálása OCIR-be
 
-Ezt az oktató végzi el egyszer. A két kész Linux/AMD64 képet Public OCIR repositorykban adjuk ki. A résztvevők a [GUIDE.hu.md](GUIDE.hu.md) alapján telepítenek: nem buildelnek, és nincs szükségük registry-tokenre.
+Ezt az oktató végzi el. A résztvevők a [GUIDE.hu.md](GUIDE.hu.md) alapján, OCI Cloud Shellből telepítenek, és a két kész Public OCIR-képet használják.
 
-A képek alkalmazáskódot tartalmaznak. A DB-jelszót, OCI privát kulcsot és a résztvevői konfigurációt telepítéskor adjuk meg. Ez az útmutató nem telepít a clusterre és nem módosít adatbázist.
+A LiteLLM-kép Cloud Shellben a végső mentésnél kifutott a rendelkezésre álló 4,6 GiB tárhelyből. A build ezért külön Linux/AMD64 VM-en fut. A korábbi `tools/publish.py` Cloud Shell-változat helyett itt a `tools/publish_vm.py` parancsot használjuk.
 
-## 1 Cloud Shell és forráskód
+## 1 Build VM és eszközök
 
-OCI Console → Cloud Shell. Válassz **X86_64** architektúrát és a külső letöltéseket elérő hálózatot. Ehhez a buildhez a Public Network használható; a későbbi clustertelepítéshez szükséges privát hálózatra vissza lehet váltani.
+Ubuntu 24.04, AMD64; 2 OCPU, 16 GB RAM, 100 GB rendszerlemez. A VM érje el a GitHubot, a csomagtárakat, Docker Hubot és az OCIR-t. Az SSH 22-es portját a saját tényleges SSH-forráscímedre engedélyezd.
 
-Ha még nincs klón:
+A saját gépedről, a megfelelő IP-címmel és kulcsútvonallal:
+
+```bash
+ssh -i /path/to/your-vm-key ubuntu@BUILD_VM_PUBLIC_IP
+```
+
+A VM-en telepítsd az eszközöket, ha még nincsenek fent:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y docker.io skopeo git python3 ca-certificates
+sudo systemctl enable --now docker
+sudo usermod -aG docker ubuntu
+exit
+```
+
+Lépj be újra ugyanazzal az SSH-paranccsal, hogy az új csoporttagság érvényesüljön:
+
+```bash
+docker version
+skopeo --version
+uname -m
+df -h /
+```
+
+Elvárt: Docker Client és Server, működő Skopeo, `x86_64`, elegendő szabad tárhely. A VM `/var/lib/docker` könyvtárát használjuk; itt nincs Cloud Shell-féle 5 GB-os korlát.
+
+## 2 Forráskód
+
+A build VM-en, első alkalommal:
 
 ```bash
 git clone https://github.com/norbsch/ocitestdrivebudapest.git
+cd ocitestdrivebudapest/KubernetesApplications
 ```
 
-Meglévő klónnál:
+Meglévő klón frissítésekor:
 
 ```bash
 cd ~/ocitestdrivebudapest
 git pull --ff-only origin main
+cd KubernetesApplications
 ```
+
+A 2026. november 17-én létrehozott build VM-en az előkészített csomag a `/opt/oci-ai-build/KubernetesApplications` könyvtárban van; azon a VM-en ezt használd:
 
 ```bash
-cd ~/ocitestdrivebudapest/KubernetesApplications
-uname -m
-command -v podman
-command -v skopeo
-command -v fuse-overlayfs
-df -h /tmp
+cd /opt/oci-ai-build/KubernetesApplications
 ```
 
-**Elvárt:** `x86_64`, mindhárom eszköz elérési útja és több GiB szabad hely a `/tmp` fájlrendszeren. A most tesztelt környezetben 4,6 GB szabad hely volt; a teljes LiteLLM-build beleférését még élőben ellenőrizni kell. Helyhiánynál állj meg és őrizd meg a hibakimenetet.
+## 3 Public OCIR repositoryk
 
-## 2 Elkülönített Podman-tárhely
+OCI Console → Frankfurt → Container Registry → a megfelelő compartment. Hozd létre vagy ellenőrizd:
 
-Minden új Cloud Shell munkamenetben, ugyanabban a terminálban futtasd:
+| Repository | Access |
+| --- | --- |
+| `oci-ai-k8s-streamlit` | Public |
+| `oci-ai-k8s-litellm` | Public |
+
+Az elfogadott tenancy namespace: `frgmw9rkvlkd`, registry: `fra.ocir.io`. A script nem módosítja a láthatóságot. [Oracle repository létrehozás](https://docs.oracle.com/en-us/iaas/Content/Registry/Tasks/registrycreatingarepository.htm)
+
+## 4 Publikáló konfiguráció
+
+A build VM-en, a csomag könyvtárában:
 
 ```bash
 umask 077
-export WORKSHOP_BUILD_ROOT="$(mktemp -d /tmp/oci-ai-k8s.XXXXXX)"
-mkdir -p "$WORKSHOP_BUILD_ROOT"/{storage,run,tmp}
-python3 tools/publish.py check
-```
-
-**Elvárt:** `PASS: elkulonitett AMD64 Podman tarhely: /tmp/oci-ai-k8s.…/storage`.
-
-Ha már létrehoztad és tesztelted a `WORKSHOP_BUILD_ROOT` változót ebben a terminálban, az új könyvtár létrehozása helyett elég:
-
-```bash
-export WORKSHOP_BUILD_ROOT
-python3 tools/publish.py check
-```
-
-A script minden Podman-parancsnak megadja a külön `--root`, `--runroot`, `overlay` és `fuse-overlayfs` beállítást, valamint a letöltési ideiglenes könyvtárat. A home alatti régi képtárat nem használja. Ne helyettesítsd a scriptet sima `podman` build/prune parancsokkal. A `/tmp` átmeneti: Cloud Shell újraindításakor új tárhelyet kell létrehozni. [Podman tárhelybeállítások](https://docs.podman.io/en/latest/markdown/podman.1.html)
-
-## 3 Két Public OCIR repository
-
-**OCI Console → Frankfurt → Container Registry → oktatói compartment → Create repository.**
-
-1. Repository type: **Standard**.
-2. Repository name: **`oci-ai-k8s-streamlit`**.
-3. Access: **Public**.
-4. **Create**.
-5. Ismételd meg **`oci-ai-k8s-litellm`** névvel, szintén Public hozzáféréssel.
-
-Meglévő repositorynál ellenőrizd a Public hozzáférést. A script nem állítja át a láthatóságot. A jóváhagyott célok: `fra.ocir.io/frgmw9rkvlkd/oci-ai-k8s-streamlit` és `fra.ocir.io/frgmw9rkvlkd/oci-ai-k8s-litellm`. [OCI repository létrehozás](https://docs.oracle.com/en-us/iaas/Content/Registry/Tasks/registrycreatingarepository.htm)
-
-## 4 Publikáló konfiguráció és Auth Token
-
-A Cloud Shellben, a `KubernetesApplications` könyvtárban:
-
-```bash
 test -f publish.env || cp templates/publish.env.example publish.env
 chmod 600 publish.env
 nano publish.env
 ```
 
-| Mező | Érték |
-| --- | --- |
-| `REGISTRY` | `fra.ocir.io` |
-| `OCIR_NAMESPACE` | `frgmw9rkvlkd` |
-| `OCIR_USERNAME` | Saját OCI-felhasználónév, szükség esetén domainnel, például `Default/user@example.com`; tenancy namespace nélkül |
-| `APP_REPOSITORY` | `oci-ai-k8s-streamlit` |
-| `PROXY_REPOSITORY` | `oci-ai-k8s-litellm` |
-| `IMAGE_TAG` | Első kiadáskor `workshop-v1`; kódváltoztatás után új verzió |
-| `IMAGE_PULL_AUTH` | `public` |
-
-Ne legyen idézőjel vagy `REPLACE` helyőrző. A fájlba nem kell jelszó, token, API-kulcs vagy DB-adat. A résztvevői `settings.env` nem szükséges a buildhez.
-
-**OCI Console → Profil → My profile / User settings → Auth tokens → Generate token.** Név például `oci-ai-workshop-publish`. A tokent mentsd jelszókezelőbe; a következő parancs rejtett bekérésénél fogod megadni. Ez OCI Auth Token, nem a Console-jelszó.
-
-## 5 Build → teszt → push, képenként
-
-```bash
-python3 tools/publish.py build-push
+```ini
+REGISTRY=fra.ocir.io
+OCIR_NAMESPACE=frgmw9rkvlkd
+OCIR_USERNAME=REPLACE_IDENTITY_DOMAIN_AND_USERNAME
+APP_REPOSITORY=oci-ai-k8s-streamlit
+PROXY_REPOSITORY=oci-ai-k8s-litellm
+IMAGE_TAG=workshop-v1
+IMAGE_PULL_AUTH=public
 ```
 
-A script rejtve kéri a tokent, és szabványos bemeneten adja át a Podman-loginnak. A hitelesítés külön `local/publisher-auth.json` fájlba kerül, 0600 jogosultsággal; a script befejezéskor vagy kezelt hibánál eltávolítja. A `local/` nincs Gitben. Kényszerített leállítás után kézzel távolítsd el ezt az authfájlt.
+OCI Console → profil ikon → My profile / User settings: nézd meg a pontos felhasználónevet és identity domaint. Ennél a környezetnél a tesztelt érték `Default/gergo.peter@oracle.com`. A saját felhasználódat add meg; a tenancy namespace-et a script teszi elé. A Cloud Shell Linux-neve nem a registry-felhasználónév.
 
-A script sorrendje:
+Új képtartalom kiadásakor új verziózott tagot használj. A `publish.env` fájlba nem kerül token, jelszó vagy privát kulcs. A résztvevői `settings.env` nem kell a buildhez.
 
-1. Streamlit Linux/AMD64 build, majd importpróba hálózat és credentialök nélkül.
-2. Streamlit feltöltése; a registry digest és az anonim Linux/AMD64 elérés ellenőrzése.
-3. A már feltöltött kép és buildadatainak törlése **kizárólag az elkülönített ideiglenes képtárból**.
-4. LiteLLM build, importpróba, feltöltés és anonim ellenőrzés, ugyanilyen takarítással.
-5. Csak mindkét kép sikere után frissül az `images.env` és annak `SHA256SUMS` bejegyzése.
-
-A proxyban a Prisma-kliens build közben készül el. Az importpróba nem helyettesíti a későbbi élő PostgreSQL/GenAI-tesztet. A `skopeo inspect --no-creds` ellenőrzés kifejezetten anonim, ezért a publikáló bejelentkezése nem fedheti el a Private repositoryt. [Skopeo inspect](https://github.com/containers/skopeo/blob/main/docs/skopeo-inspect.1.md), [Podman push digestfile](https://docs.podman.io/en/v4.9.3/markdown/podman-push.1.html)
-
-**Elvárt végső üzenet:** `PASS: mindket kep az OCIR-ben; images.env es SHA256SUMS frissitve.`
-
-Hibánál az `images.env` előző tartalma megmarad. Az első kép közben már lehet az OCIR-ben. Ne add ki a félkész csomagot. A hiba javítása után a `build-push` újra az első képtől indul; ha a második build félbemaradt adatai miatt nincs hely, az alábbi paranccsal ürítsd csak ezt az ideiglenes képtárat, majd indítsd újra:
+## 5 Build és ellenőrzés
 
 ```bash
-TMPDIR="$WORKSHOP_BUILD_ROOT/tmp" podman --root "$WORKSHOP_BUILD_ROOT/storage" --runroot "$WORKSHOP_BUILD_ROOT/run" --storage-driver=overlay --storage-opt=overlay.mount_program=/usr/bin/fuse-overlayfs image prune -a -f
+python3 tools/publish_vm.py check
+python3 tools/publish_vm.py build
 ```
 
-Ez a takarítás csak akkor futtatható, ha nincs folyamatban build, és a `WORKSHOP_BUILD_ROOT` továbbra is a 2. pontban létrehozott saját `/tmp/oci-ai-k8s.*` könyvtár. Az alapértelmezett Podman-tárhelyet nem kell megjavítani a workshop buildjéhez.
+Elvárt: `PASS: mindket kep elkeszult es az importproba sikeres.`
 
-## 6 Kiadási fájlok vissza a Git-repóba
+A script mindkét képet Linux/AMD64 platformra készíti, ellenőrzi az architektúrát, majd hálózat és OCI/DB-hitelesítők nélküli konténerekben importpróbát futtat. A LiteLLM-kép Prisma-kliensét is a build állítja elő. Ez nem helyettesíti a későbbi élő DB- és GenAI-tesztet.
+
+## 6 Feltöltés és anonim ellenőrzés
+
+OCI Console → My profile / User settings → Auth tokens → Generate token. Használhatod a saját meglévő Auth Tokenedet is. A token értékét csak a rejtett bekérésbe illeszd:
+
+```bash
+python3 tools/publish_vm.py push
+```
+
+A token beillesztésekor nem látszanak karakterek. Ez normális. A hitelesítés átmeneti, 0600 jogosultságú Docker-konfigurációba kerül, amelyet a script befejezéskor eltávolít. A token nem kerül a parancs argumentumába vagy Gitbe.
+
+A script feltölti a képeket, és a `skopeo inspect --no-creds` paranccsal anonim módon ellenőrzi a kiadott digesteket és a Linux/AMD64 platformot. Csak mindkét kép sikere után frissíti az `images.env` és `SHA256SUMS` fájlokat. [Skopeo anonim ellenőrzés](https://github.com/containers/skopeo/blob/main/docs/skopeo-inspect.1.md)
+
+Elvárt: `PASS: mindket kep az OCIR-ben; images.env es SHA256SUMS frissitve.`
+
+Ha a feltöltés hibázik, a javítás után csak a `push` lépést kell ismételni; a kész helyi képek megmaradnak. A `build-push` paranccsal a két lépés egyben is futtatható.
+
+## 7 Kiadási fájlok a Git-repóba
+
+A build VM-en ellenőrizd:
 
 ```bash
 cat images.env
-git diff -- images.env SHA256SUMS
 ```
 
-Az `images.env` két tényleges `@sha256:…` képcímet és `IMAGE_PULL_AUTH=public` értéket tartalmazzon. Amíg helyőrzős, nem használható résztvevői telepítéshez.
+Két `@sha256:…` képcímet és `IMAGE_PULL_AUTH=public` értéket kell látnod.
 
-Cloud Shellből töltsd le az `images.env` és `SHA256SUMS` fájlokat a Cloud Shell **Download** funkciójával, és a saját Macen másold a klón `KubernetesApplications/` könyvtárába, a megfelelő fájlok helyére. Így a Git-push továbbra is a már beállított saját gépedről történik. A Macen a repo gyökeréből:
+A saját gépeden, a repo gyökeréből másold le a két nem titkos kiadási fájlt. A parancsokban helyettesítsd a kulcsot, az IP-címet és szükség esetén a távoli csomag útvonalát:
 
 ```bash
-git add KubernetesApplications/images.env KubernetesApplications/SHA256SUMS
+scp -i /path/to/your-vm-key ubuntu@BUILD_VM_PUBLIC_IP:/opt/oci-ai-build/KubernetesApplications/images.env KubernetesApplications/images.env
+scp -i /path/to/your-vm-key ubuntu@BUILD_VM_PUBLIC_IP:/opt/oci-ai-build/KubernetesApplications/SHA256SUMS KubernetesApplications/SHA256SUMS
+```
+
+A megfelelő forrásverzió legyen a helyi Git-klónban is, különben a SHA256SUMS más fájlverziókra fog hivatkozni. Ezután:
+
+```bash
+git add KubernetesApplications/
 git --no-pager diff --cached --stat
 git --no-pager diff --cached --name-only
-git commit -m "Publish prebuilt OKE workshop image references"
+```
+
+A listában ne legyen `publish.env`, `settings.env`, `local/` vagy privát kulcs. Ellenőrzés után:
+
+```bash
+git commit -m "Publish prebuilt OKE workshop images and VM build guide"
 git pull --rebase origin main
 git push origin main
 ```
 
-Konfliktusnál állj meg. Hitelesítőt és `local/` tartalmat ne tölts le a kiadáshoz és ne adj Githez.
+Konfliktusnál állj meg. A résztvevők ezután a [GUIDE.hu.md](GUIDE.hu.md) szerint telepítenek OCI Cloud Shellből. A podok a kész képeket közvetlenül az OCIR-ből töltik le.
 
-## 7 Résztvevők és következő kiadás
+## 8 Build VM a munka után
 
-A résztvevő a [GUIDE.hu.md](GUIDE.hu.md) szerint klónoz/frissít, átveszi a kész képhivatkozásokat, majd beállítja a saját DB- és OCI-hitelesítőit. A képeket az OKE node-ok töltik le az OCIR-ből.
+A kész képek az OCIR-ben maradnak, nem a build VM-ről töltődnek. Ha nincs több build, a VM leállítható; a rendszerlemezt és a forrásokat megtarthatod a következő kiadáshoz. Az OCI Console-ban a VM költségeit és a megmaradó boot volume-ot is vedd figyelembe.
 
-Új kódhoz emeld az `IMAGE_TAG` értékét és ismételd a build/push/kiadási lépéseket. LiteLLM-verzió- és sémaváltozásnál a DB-mentés/migráció szabályai továbbra is érvényesek. A résztvevők által használt régi digesteket őrizd meg a registryben, hogy a podok később is újraindulhassanak.
+Új kiadásnál emeld az `IMAGE_TAG` értékét, ismételd az 5–7. pontot, és őrizd meg a résztvevők által még használt régi digesteket a registryben.

@@ -1,33 +1,32 @@
 Kubernetes telepítőcsomag ellenőrzése, 2026. november 17.
 
-Cél: meglévő Basic OKE v1.37.1, managed amd64 node-ok, Cloud Shell privát API-eléréssel; meglévő normál OCI Load Balancer NodePort-bekötéssel; egy Streamlit-pod és egy LiteLLM-pod; konfigurálható külső PostgreSQL 16.
+Elvégzett élő műveletek:
+- A felhasználó kifejezett kérésére létrejött az oci-ai-image-builder VM a gergo_peter_labs compartmentben, Frankfurtban: Ubuntu 24.04, AMD64, E5 Flex, 2 OCPU, 16 GB memória, 100 GB boot volume.
+- Külön builder subnet és security list készült a meglévő litellm-demo-vcn-ben; az SSH a tényleges munkaállomás-kilépőcím /32 tartományára korlátozott. A meglévő app/DB/OKE erőforrásokat nem módosítottuk.
+- Docker 29.1.3, Skopeo, Git, Python 3 és rendszerfüggőségek telepítve.
+- Mindkét kép Linux/AMD64 buildje sikeres. A Docker által jelzett teljes méret: Streamlit 809 MB, LiteLLM 2,12 GB.
+- Streamlit importpróba és ideiglenes localhost-konténer HTTP health teszt: 200 ok. A tesztkonténert eltávolítottuk.
+- LiteLLM, Prisma, psycopg, cryptography és az OCI chat provider offline importpróbája sikeres. A Prisma-kliens build közben generálódott.
+- Mindkét kép feltöltve a frgmw9rkvlkd namespace két jóváhagyott Public repositoryjába, workshop-v1 taggal. Az images.env a tényleges registry digesteket rögzíti.
+- A feltöltéshez a munkaállomáson meglévő OCI API-hitelesítéssel, repositoryra korlátozott és egyórás registry access tokeneket kértünk. A token SSH stdin csatornán, átmeneti Docker-konfigurációba került; nem került argumentumba, képbe vagy Gitbe. A VM-re OCI API-privátkulcsot nem másoltunk.
+- Anonim registry-manifest olvasás, digest- és platformellenőrzés, valamint mindkét kép teljes anonim Skopeo-letöltése sikeres.
+- A korábbi Docker-alapú résztvevői `python3 tools/pull_images.py --sudo` parancs az Ubuntu build VM-en is sikeresen lefutott: üres Docker authkonfiguráció, mindkét digest és Linux/AMD64 platform ellenőrizve. A Docker ekkor már rendelkezett a rétegekkel; a teljes anonim rétegletöltést a külön Skopeo-próba igazolta. A VM-en 90 GB szabad hely maradt.
 
-A résztvevő által bemásolt Cloud Shell-kimenet alapján a privát API-elérés működik, három Ready/amd64/VM.Standard.E5.Flex node látható, és nincs meglévő IngressClass, Ingress vagy alkalmazás LoadBalancer Service. Ez nem a csomag telepítésének tesztje.
+- A korábbi `python3 tools/pull_images.py` Skopeo-parancs Ubuntu 24.04-en sikeresen letöltötte mindkét teljes képet fájlokba; a digest és a Linux/AMD64 platform ellenőrzése is sikeres. Ez a segédeszköz az új Cloud Shell guide-nak nem része, a résztvevőnek nem kell futtatnia.
 
-Elvégzett helyi ellenőrzések:
-- Az eredeti 18 offline teszt és 9 további kiadási teszt, összesen 27 teszt sikeres: szigorú TLS/URL-kódolás, konfigurálható DB-nevek, átmeneti SET jog visszaállítása CREATE DATABASE hiba után, csak olvasó DB-ellenőrzés, TLS hiányának visszautasítása, NodePort/ClusterIP elválasztás, Cluster forgalompolitika, egy-egy példány, nem root podok, Secret-mount jogosultság, adminjelszó kizárólag az init Jobban, app/proxy credentialök szétválasztása, képletöltési Secret, díjmentes probe útvonalak, Jobok automatikus újrapróbálásának tiltása, namespace/context hatókör, meglévő Secret megőrzése, titkos helyi fájl 0600 jogosultsága, redaktált hiba, bizonytalan kulcslétrehozás blokkolása és meglévő appkulcs újrafelhasználása.
-- Python források és a Bash telepítő szintaxisa ellenőrizve.
-- A guide parancsblokkjai Bash-szintaktikailag ellenőrizve; helyi dokumentumhivatkozások érvényesek.
-- A konfigurációparsert és a tényleges renderelőt mesterséges adatokkal futtattuk: 8 Kubernetes JSON manifest generálható. A képcímek átvételéhez és a privát registry-loginhoz még hiányzó KUBE_CONTEXT elfogadott, a cluster-műveletekhez kötelező.
-- A Dockerfile-ok csak alkalmazás-/runtime-forrásokat másolnak; whitelist alapú .dockerignore kizárja a helyi credentialöket.
-- A csomag nem függ a VM-es Applications könyvtártól, /home/ubuntu útvonaltól vagy a fejlesztő workbench könyvtárától.
+Helyi ellenőrzések:
+- A résztvevői guide 10 lépésből áll, kizárólag Cloud Shellből történő telepítéshez. Az előre telepített OCI CLI és kubectl ellenőrzésével indul, a Cloud Shell beépített hitelesítését megtartja. A LiteLLM saját API-kulcsot kap.
+- A fő útvonalban nincs helyi image-letöltés vagy konténerfuttatás. A képeket az OKE tölti le közvetlenül a nyilvános OCIR-ből. A hibakeresés, frissítés és eltávolítás az UZEMELTETES.hu.md fájlba került.
+- 34 offline teszt: DB TLS/URL-kezelés, DB-bootstrap szerepkör-kezelés, manifestek, nem root podok, namespace/context, Secret-megőrzés, public registry tokenmentes résztvevői telepítése, kiadási képcímek átvétele, publikációs hibák utáni kiadásmegőrzés, authfájl törlése, platformellenőrzés, a munkaállomás-letöltő anonim hozzáférése és hibás digest/platform elutasítása.
+- Python 3.9-kompatibilis szintaxis, a guide Bash parancsblokkjai, helyi hivatkozások, 8 Kubernetes manifest renderelése és a csomag ellenőrzőösszegei ellenőrizve. A script public képeknél nem kér registry-tokent, és a podok nem kapnak imagePullSecretet.
+- A .dockerignore whitelist alapján csak az alkalmazás-/runtime-források kerülnek a build contextbe. A csomag nem tartalmaz valódi jelszót, privát kulcsot, registry tokent vagy kubeconfigot.
 
-Még élő környezetben ellenőrizendő:
-- A két teljes alkalmazáskép Cloud Shell buildje és OCIR push/pullja, különösen a teljes LiteLLM-build helyigénye. A felhasználó elkülönített /tmp Podman-tárhelyről sikeresen futtatott Alpine tesztkonténert x86_64 kimenettel; ez még nem az alkalmazásképek buildtesztje.
-- Kubernetes API-szerveres dry-run, ütemezés, tényleges podindulás és a Prisma-kliens futása a saját képben.
-- PostgreSQL bootstrap/verify-full kapcsolat és LiteLLM sémamigráció a cél DB-n. A DB-bootstrap SQL-ágakat offline helyettesített kapcsolattal ellenőriztük.
-- OCI API-kulcs tényleges modelljogosultsága, modellhívás, pozitív költség és konkrét spend sor.
-- A meglévő LB → worker NodePort → Streamlit útvonal, HTTP/WebSocket és böngészős munkamenet.
-- A résztvevő Cloud Shellnek már nem kell buildkapacitás, Docker/Podman vagy AMD64 architektúra. A worker node-ok registry-elérését továbbra is élőben kell ellenőrizni.
+Még nem ellenőrzött élő telepítési lépések:
+- A friss Cloud Shell guide teljes, elejétől végéig történő végrehajtása. A beépített eszközök, CLI-hitelesítés és feltöltés lépései hivatalos OCI dokumentáció alapján készültek.
+- A résztvevő aktuális Cloud Shell sessionjének hálózati elérése az OKE API-hoz.
+- Kubernetes API-szerveres dry-run, podütemezés és futás a résztvevő OKE clusterén.
+- PostgreSQL bootstrap, verify-full kapcsolat és LiteLLM sémamigráció a cél adatbázison.
+- GenAI modellhívás és a konkrét hívás költségének/spend sorának ellenőrzése.
+- A meglévő Load Balancer → worker NodePort → Streamlit útvonal, HTTP/WebSocket és böngészős munkamenet.
 
-A csomag készítésekor nem történt cluster-/OCI-módosítás, képfeltöltés, adatbázis-művelet, fizetős modellhívás vagy Git-push. Az új csomagot a felhasználó másolja majd a repo KubernetesApplications könyvtárába. Nem tartalmaz tényleges jelszót, API-kulcsot, registry tokent vagy kubeconfigot.
-
-Átalakítás közös, előre buildelt nyilvános képekre:
-- Külön tools/publish.py és PUBLISH.hu.md: egyszeri oktatói Cloud Shell Podman build/push, --platform linux/amd64; minden Podman-parancs elkülönített /tmp root/runroot/overlay/fuse tárhelyet kap. Képenként build, architektúra/importpróba, push, anonim digestellenőrzés, majd csak az ideiglenes képtár ürítése következik.
-- A publisher nem függ a résztvevő settings.env, DB- vagy GenAI-hitelesítőitől. Az oktató tokenje stdin útján jut a podman login parancshoz.
-- Sikeres két push és skopeo --no-creds registry-ellenőrzés után images.env tartalmazza az ellenőrzött digest-hivatkozásokat. Addig kifejezett NOT_PUBLISHED helyőrző állítja meg a résztvevőket.
-- A nyilvános résztvevői manifestekben nincs imagePullSecrets, a prepare nem vár registry-auth.json fájlt. Privát alternatíva külön registry-login művelettel maradt, Cloud Shell-es build nélkül.
-- Az új offline tesztek lefedik a public mód Secret- és tokenmentességét, a prepare régi builder-auth-függőségének megszűnését, az explicit AMD64 buildet, izolált importpróbát, repositoryhoz illő digestet, második build hibájánál a korábbi kiadás megőrzését és a token elhagyását az argumentumokból, az anonim hozzáférés kötelező ellenőrzését, valamint a kiadási képcímek átvételét a résztvevő DB-beállításainak megőrzésével.
-- Nem futott képfeltöltés, láthatóság-módosítás, repository-létrehozás vagy clustertelepítés. A felhasználó jóváhagyta a két új workshop-kép nyilvános közzétételét; a fra.ocir.io/frgmw9rkvlkd cél megerősítve. A publikáló OCI-username és a Public repositoryk még ellenőrizendők. Docker Desktopot nem használunk.
-
-A Cloud Shell kiadás új offline tesztje ellenőrzi a home alatti Podman store visszautasítását, a buildtárhely tulajdonosának/jogosultságainak és symlinkmentességének ellenőrzését, a Podman-parancsok explicit tárhelyét és TMPDIR értékét. A részleges kiadás tesztje lefedi az első kép feltöltés/takarítás sorrendjét, a korábbi images.env megőrzését és az átmeneti authfájl eltávolítását hiba esetén. Sikertelen futás újraindításakor mindkét képet újrabuildeli.
+A jelenlegi műveletekben nem történt clustertelepítés, DB-módosítás, fizetős modellhívás vagy Git-push. A Cloud Shell korábbi 4,6 GiB-os tárhelyén a LiteLLM kép végső commitja meghiúsult; a PUBLISH.hu.md ezért a külön build VM-et használja.
