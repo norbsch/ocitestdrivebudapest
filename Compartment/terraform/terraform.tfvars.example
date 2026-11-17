@@ -1,6 +1,6 @@
 # Copy to terraform.tfvars and edit before running Terraform.
 # Keep credentials and private keys outside this repository.
-oci_config_profile = "DEFAULT"
+config_file_profile = "DEFAULT"
 home_region        = "eu-frankfurt-1" # Replace with YOUR tenancy's home region.
 
 # Tenancy root: ocid1.tenancy...; nested parent: ocid1.compartment...
