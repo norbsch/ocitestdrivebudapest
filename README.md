@@ -16,7 +16,6 @@ Each lab provides an OCI Console walkthrough and a Terraform deployment option. 
 
 - Access to an OCI tenancy with permissions and sufficient service limits to create the lab resources.
 - Use the same OCI region and lab compartment throughout the exercises. The planned region is **Germany Central (Frankfurt)**, `eu-frankfurt-1`.
-- An SSH key pair for the Ubuntu VMs.
 - For Terraform deployments: Terraform and OCI authentication configured as described in each lab.
 - For interacting with OKE after deployment: OCI CLI and `kubectl`, configured as described in the OKE lab.
 
@@ -39,70 +38,13 @@ Start with **Compartment**, then **Network**. The later labs reuse the compartme
 
 The diagram shows the planned infrastructure in **Frankfurt**, inside the lab compartment. Subnets are regional; availability domain placement is shown on the compute and database components where specified.
 
-```mermaid
-flowchart TB
-    users["Web clients"]
-    admin["Administrator · OCI CLI / kubectl"]
-    internet["Internet"]
-    services["Supported OCI services"]
+![OCITestDriveBudapest architecture showing the compartment, VCN, three regional subnets, public load balancer, private Ubuntu VMs, PostgreSQL, OKE, and gateways](./ocitestdrivebudapest-architecture.png)
 
-    subgraph region["OCI · eu-frankfurt-1 · Frankfurt"]
-        subgraph compartment["Lab compartment"]
-            subgraph vcn["p01-vcn · 10.0.0.0/16"]
-                igw["Internet Gateway"]
-                nat["NAT Gateway"]
-                sgw["Service Gateway"]
+[Download the architecture diagram (PNG)](./ocitestdrivebudapest-architecture.png)
 
-                subgraph public["p01-subnet-public-lb · 10.0.0.0/24 · Regional public subnet"]
-                    lb["Public Load Balancer · Ephemeral public IP · HTTP :80 · Round Robin · 10–100 Mbps"]
-                    api["OKE Kubernetes API endpoint · Public IP · HTTPS :6443"]
-                end
+Solid blue arrows show configured web traffic. Purple dashed lines show the OKE control relationship; green dashed arrows show outbound connectivity. The OKE worker pool belongs to the OCI-managed cluster shown above the VCN. AD labels describe resource placement within regional subnets.
 
-                subgraph privatevm["p01-subnet-private-vm · 10.0.1.0/24 · Regional private subnet"]
-                    web1["p01-vm-01 · Ubuntu · Web backend · HTTP :80"]
-                    web2["p01-vm-02 · Ubuntu · Web backend · HTTP :80"]
-                    llm["Third Ubuntu VM · AD3 · LLM gateway · 10.0.1.4"]
-                    workers["OKE worker pool · 3 nodes · AD3 · VM.Standard.E5.Flex · 2 OCPU / 8 GB each · Flannel overlay"]
-                end
-
-                subgraph privatedb["p01-subnet-private-db · 10.0.2.0/24 · Regional private subnet"]
-                    pg["PostgreSQL 17 · 2 database nodes · Requested placement: AD1 · E5.Flex · 2 OCPU / 16 GB per node · 75K IOPS"]
-                end
-
-                routing["Subnet route tables and security lists · Public Internet route → Internet Gateway · Private Internet egress → NAT Gateway · Supported OCI service routes → Service Gateway"]
-            end
-            control["OKE cluster · OCI-managed control plane"]
-        end
-    end
-
-    users --> internet
-    admin --> internet
-    internet --> igw
-    igw --> lb
-    igw --> api
-    lb --> web1
-    lb --> web2
-    api --- control
-    control --- workers
-    privatevm -. "Outbound Internet access" .-> nat
-    nat --> internet
-    routing -. "Configured service routes" .-> sgw
-    sgw --> services
-```
-
-### Placement and behavior
-
-| Component | Network placement | Availability domain / role |
-| --- | --- | --- |
-| Public load balancer | Public subnet, `10.0.0.0/24` | Regional service; forwards HTTP port 80 to the two web VMs. |
-| OKE API endpoint | Public subnet, `10.0.0.0/24` | Public API access; restrict ingress to approved administrator addresses. |
-| Two web VMs | Private VM subnet, `10.0.1.0/24` | Use the availability domains configured in the VM lab. |
-| LLM gateway VM | Private VM subnet, `10.0.1.0/24` | AD3; private IP `10.0.1.4`. |
-| OKE worker nodes | Private VM subnet, `10.0.1.0/24` | Three nodes in AD3; Flannel pod addresses form a separate overlay. |
-| PostgreSQL database system | Private database subnet, `10.0.2.0/24` | AD1 requested by the database lab; two database nodes. |
-| Internet, NAT, and Service Gateways | VCN | Connectivity is controlled by subnet route tables and security rules. |
-
-The diagram describes infrastructure and intended roles. Application deployment and connections between the web application, LLM gateway, and PostgreSQL require application configuration and the appropriate security rules. The LLM gateway VM is separate from the load balancer's two web backends. OKE workload load balancers, if created later, use the public load balancer subnet and are separate from the VM load balancer shown here.
+The diagram uses custom service symbols. Oracle’s official [OCI Architecture Diagram Toolkit](https://docs.oracle.com/en-us/iaas/Content/General/Reference/graphicsfordiagrams.htm) downloads were unavailable while preparing this version; official toolkit icons are therefore not embedded.
 
 Use the parameters in each lab as the source of truth for exact resource names, images, supported versions, IP addresses, and availability domain identifiers. Check that private IP addresses are available and not reserved by OCI before assigning them.
 
