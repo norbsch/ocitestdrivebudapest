@@ -38,7 +38,7 @@ Start with **Compartment**, then **Network**. The later labs reuse the compartme
 
 The diagram shows the planned infrastructure in **Frankfurt**, inside the lab compartment. Subnets are regional; availability domain placement is shown on the compute and database components where specified.
 
-![OCITestDriveBudapest architecture showing the compartment, VCN, three regional subnets, public load balancer, private Ubuntu VMs, PostgreSQL, OKE, and gateways](./ocitestdrivebudapest-architecture.png)
+
 
 [Download the architecture diagram (PNG)](./ocitestdrivebudapest-architecture.png)
 
