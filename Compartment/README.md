@@ -34,9 +34,9 @@ Create an empty OCI compartment to contain the resources from the remaining labs
 
 Use a name of 1–100 characters containing letters, numbers, periods, hyphens, or underscores. Keep the description between 1 and 400 characters. The name must be unique within its parent. Avoid confidential information in names, descriptions, and tags.
 
-Choose **Option A or Option B** for this lab. Both produce the same target configuration. Do not deploy both against the same resources. Run the labs in order: **Compartment → Networking → Virtual Machines**.
+Choose **Option A or Option B** for this lab. Both produce the same target configuration. Do not deploy both against the same resources.
 
-For Option B, install Terraform CLI **1.5 or later, below 2.0** and configure an OCI API-signing-key profile in `~/.oci/config`. Use the tenancy home region for this lab. The profile needs `tenancy`, `user`, `fingerprint`, and `key_file`; register the matching public key with your OCI user and keep the private key outside the repository.
+For Option B, install Terraform CLI and configure an OCI API-signing-key profile in `~/.oci/config`. Use the tenancy home region for this lab. The profile needs `tenancy`, `user`, `fingerprint`, and `key_file`; register the matching public key with your OCI user and keep the private key outside the repository.
 
 ## Target configuration
 
@@ -47,7 +47,6 @@ For Option B, install Terraform CLI **1.5 or later, below 2.0** and configure an
 | Name | `OCITestDriveBudapest-p01` (use your attendee suffix) |
 | Description | `Resource container for the OCITestDriveBudapest hands-on labs` |
 | Optional free-form tag | `Project = OCITestDriveBudapest` |
-| Terraform deletion setting | `enable_compartment_delete = true` |
 | Result | Active compartment and its OCID |
 
 This lab creates no IAM policies, networking, compute, or database resources. Creating a compartment does not grant access to resources inside it.
@@ -73,12 +72,11 @@ This lab creates no IAM policies, networking, compute, or database resources. Cr
 
 1. Check its name and parent on the compartment details page.
 2. Find **OCID** and select **Copy**. Record this as the **lab compartment OCID**.
-3. Confirm you created only the compartment. No networking or compute resources are created by this exercise.
-4. In the next lab, select this compartment on every applicable resource creation form. Allow a short propagation delay if it does not immediately appear in a selector, then refresh.
+3. In the next lab, select this compartment on every applicable resource creation form. Allow a short propagation delay if it does not immediately appear in a selector, then refresh.
 
 **Success:** one Active compartment exists under the intended parent, and you have its OCID.
 
-Keep the compartment for all remaining labs. If you later manage it with Terraform, use the import procedure in Option B before planning a deployment.
+Keep the compartment for all remaining labs.
 
 ## Option B - Deployment steps for Terraform
 
@@ -97,16 +95,16 @@ Edit only `terraform.tfvars` for attendee-specific settings:
 | Parameter | What to enter |
 | --- | --- |
 | `oci_config_profile` | Profile name from `~/.oci/config`, such as `DEFAULT` |
-| `home_region` | Your tenancy's home region ID; the example is illustrative |
+| `home_region` | Your tenancy's home region ID |
 | `parent_compartment_ocid` | Existing parent compartment OCID, or tenancy OCID for root |
-| `compartment_name` | Your unique name, such as `OCITestDriveBudapest-alice-01` |
+| `compartment_name` | Your unique name, such as `OCITestDriveBudapest-p01` |
 | `compartment_description` | A short, nonblank description |
 | `freeform_tags` | Tag map, or `{}` for none |
 | `enable_compartment_delete` | Keep `true` for the workshop behavior described below |
 
 All seven inputs are required and have no defaults in `variables.tf`, so editable lab values stay in the parameter file. Provider authentication mode and version constraints are maintained in code.
 
-**Deletion and collision behavior:** `true` makes the provider reject an existing-name collision and allows Terraform to attempt deletion during destroy. With `false`, the provider can silently adopt a same-named existing compartment and change it; destroy removes it from Terraform state without deleting the OCI compartment. Keep `true` for this lab and review any changes to this setting carefully.
+**Deletion and collision behavior:** `enable_compartment_delete = true` makes the provider reject an existing-name collision and allows Terraform to attempt deletion during destroy. With `false`, the provider can silently adopt a same-named existing compartment and change it; destroy removes it from Terraform state without deleting the OCI compartment. Keep `true` for this lab and review any changes to this setting carefully.
 
 ### 2. Initialize, validate, and review a plan
 
@@ -131,28 +129,9 @@ Applying the saved plan executes the reviewed changes. Expected result: one comp
 
 Keep the local Terraform state: it tracks ownership for updates and cleanup. Do not commit state, plans, credentials, or attendee parameter files to GitHub. Ensure `.gitignore` excludes state, saved plans, and local `.tfvars` files while retaining the example and provider lock file.
 
-### 4. Continue with the networking lab
-
-Copy the value from `terraform output -raw compartment_ocid` into the **networking lab's own parameter file**, using its existing resource-compartment variable name. Do not reuse `parent_compartment_ocid`: that input identifies where this compartment is created, not where the next lab's resources belong.
-
-Run the networking lab in its own directory and state. It will create the VCN, subnets, and gateways later; this configuration creates only the compartment. Keep this compartment until all subsequent labs are finished.
-
-### 5. Optional: adopt a compartment you created in the Console
-
-Skip this step for a new Terraform-created compartment. For a compartment you own and intend to manage here:
-
-1. Configure `terraform.tfvars` to match that compartment's parent, name, description, and tags.
-2. Run `terraform init` if not already done.
-3. Replace the placeholder below with its **actual compartment OCID**, then import:
-
-```bash
-terraform import oci_identity_compartment.lab 'REPLACE_WITH_EXISTING_LAB_COMPARTMENT_OCID'
-terraform plan
-```
-
 Inspect the plan before applying: import records the resource in state but does not make the configuration match automatically. Import only once and never manage the same compartment from two Terraform states.
 
-Keep attendee settings in `terraform.tfvars`, separate from resource definitions. Keep credentials, private keys, state, and saved plans out of GitHub. Commit the Terraform source, sanitized example parameters, and reviewed `.terraform.lock.hcl`. Use a separate working directory and state for each lab and attendee.
+Keep attendee settings in `terraform.tfvars`, separate from resource definitions. Keep credentials, private keys, state, and saved plans out of GitHub. Use a separate working directory and state for each lab and attendee.
 
 ## Troubleshooting
 
