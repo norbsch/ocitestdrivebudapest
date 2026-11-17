@@ -1,0 +1,30 @@
+Elsődleges technikai források, ellenőrizve 2026-11-17.
+
+Cloud Shell: Podman, architektúra, tárhely
+https://docs.oracle.com/en-us/iaas/Content/API/Concepts/cloudshellintro.htm
+Cloud Shell Private Network Access
+https://docs.oracle.com/en-us/iaas/Content/API/Concepts/cloudshellintro_topic-Cloud_Shell_Networking.htm
+OKE kubeconfig
+https://docs.oracle.com/en-us/iaas/Content/ContEng/Tasks/contengdownloadkubeconfigfile.htm
+OCIR repository létrehozása
+https://docs.oracle.com/en-us/iaas/Content/Registry/Tasks/registrycreatingarepository.htm
+OCIR imagePullSecret és username formátum
+https://docs.oracle.com/en-us/iaas/Content/Registry/Tasks/registrypullingimagesfromocir.htm
+OCI PostgreSQL privát kapcsolat és CA
+https://docs.oracle.com/en-us/iaas/Content/postgresql/connect-to-db.htm
+Kubernetes Service, NodePort és externalTrafficPolicy
+https://kubernetes.io/docs/concepts/services-networking/service/
+https://kubernetes.io/docs/reference/kubernetes-api/core/service-v1/
+OCI Load Balancer listenerek
+https://docs.oracle.com/en-us/iaas/Content/Balance/Tasks/managinglisteners.htm
+OCI backend-hibakeresés
+https://docs.oracle.com/en-us/iaas/Content/Balance/Reference/troubleshooting_backend.htm
+LiteLLM migrációs működés
+https://docs.litellm.ai/docs/proxy/prod
+A rögzített v1.108.4 --skip_server_startup és disable_prisma_schema_update implementációja
+https://github.com/BerriAI/litellm/blob/v1.108.4/litellm/proxy/proxy_cli.py
+https://github.com/BerriAI/litellm/blob/v1.108.4/litellm/proxy/db/prisma_client.py
+LiteLLM díjmentes probe végpontok
+https://docs.litellm.ai/docs/proxy/health
+Streamlit külső böngészős cím és konfiguráció
+https://docs.streamlit.io/develop/api-reference/configuration/config.toml

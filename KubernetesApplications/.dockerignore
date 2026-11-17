@@ -1,0 +1,9 @@
+**
+!app/
+!app/app.py
+!app/client.py
+!app/requirements.txt
+!proxy/
+!proxy/requirements.txt
+!runtime/
+!runtime/*.py
