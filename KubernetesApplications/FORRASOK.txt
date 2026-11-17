@@ -2,6 +2,10 @@ Elsődleges technikai források, ellenőrizve 2026-11-17.
 
 Cloud Shell szolgáltatás és hálózati háttér
 https://docs.oracle.com/en-us/iaas/Content/API/Concepts/cloudshellintro.htm
+Cloud Shell beépített CLI-hitelesítés, Python-választás és fájlfeltöltés
+https://docs.oracle.com/en-us/iaas/Content/API/Concepts/devcloudshellgettingstarted.htm
+Saját OCI API-kulcs a LiteLLM futásához
+https://docs.oracle.com/en-us/iaas/Content/API/Concepts/apisigningkey.htm
 Cloud Shell Private Network Access
 https://docs.oracle.com/en-us/iaas/Content/API/Concepts/cloudshellintro_topic-Cloud_Shell_Networking.htm
 OKE kubeconfig
@@ -34,3 +38,31 @@ Podman 4.9 push --digestfile
 https://docs.podman.io/en/v4.9.3/markdown/podman-push.1.html
 Skopeo inspect --no-creds: anonim registry ellenorzes
 https://github.com/containers/skopeo/blob/main/docs/skopeo-inspect.1.md
+
+OCI registry rovid elettartamu access token API
+https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/container-registry/access-token/get.html
+Docker registry bearer token hitelesites
+https://github.com/moby/moby/blob/master/api/types/registry/authconfig.go
+
+Kubernetes: kubectl telepítés Linuxon, bináris SHA256 ellenőrzése
+https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/
+OCI CLI kézi telepítés külön Python-környezetbe
+https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/climanualinst.htm
+OCI create-kubeconfig végpont és hitelesítési kontextus
+https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/ce/cluster/create-kubeconfig.html
+
+Skopeo telepítése Ubuntu és macOS rendszereken
+https://github.com/containers/skopeo/blob/main/install.md
+Oracle Linux: Skopeo és kapcsolódó eszközök külön telepítése
+https://docs.oracle.com/en/operating-systems/oracle-linux/podman/install.html
+Skopeo teljes képletöltés, dir transport, preserve-digests
+https://github.com/containers/skopeo/blob/main/docs/skopeo-copy.1.md
+Kubectl macOS binárisok Intel és Apple Silicon gépekhez
+https://kubernetes.io/docs/tasks/tools/install-kubectl-macos/
+Homebrew telepítése
+https://docs.brew.sh/Installation
+Oracle Linux Python telepítése
+https://docs.oracle.com/en/operating-systems/oracle-linux/9/python/python-InstallingPython.html
+
+Oracle Linux 8.10: Python 3.12 telepítése
+https://docs.oracle.com/en/operating-systems/oracle-linux/8/python/python-InstallingPython.html

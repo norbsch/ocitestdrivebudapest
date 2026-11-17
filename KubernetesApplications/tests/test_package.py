@@ -19,6 +19,9 @@ sys.path.insert(0, str(ROOT / 'tools'))
 import manifests
 import workshop
 import publish
+import publish_vm
+import pull_images
+import verify_package
 spec = importlib.util.spec_from_file_location('runtime_db', ROOT / 'runtime/db.py')
 db = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(db)
@@ -311,6 +314,101 @@ class PublishingTests(unittest.TestCase):
             self.assertIn('IMAGE_PULL_AUTH=public', result)
             self.assertIn('APP_IMAGE=fra.ocir.io/publisher/app@sha256:', result)
             self.assertEqual((path/'settings.env').stat().st_mode & 0o777, 0o600)
+
+
+class VmPublishingTests(unittest.TestCase):
+    def test_wrong_architecture_stops_build_before_import_or_next_image(self):
+        with patch.object(publish_vm, 'refs', return_value={'APP':'registry/app:v1','PROXY':'registry/proxy:v1'}), patch.object(publish_vm, 'run') as run, redirect_stdout(io.StringIO()):
+            run.return_value.stdout=json.dumps([{'Os':'linux','Architecture':'arm64'}])
+            with self.assertRaises(SystemExit):publish_vm.build({})
+            self.assertEqual(len(run.call_args_list),2)
+            self.assertFalse(any('run' in c.args[0][1:2] for c in run.call_args_list))
+
+    def test_second_push_failure_preserves_release_and_removes_auth(self):
+        refs={'APP':'fra.ocir.io/publisher/app:v1','PROXY':'fra.ocir.io/publisher/proxy:v1'}
+        v={'REGISTRY':'fra.ocir.io','OCIR_NAMESPACE':'publisher','OCIR_USERNAME':'Default/user','IMAGE_PULL_AUTH':'public'}
+        paths=[]
+        def execute(cmd,**kwargs):
+            if cmd[1]=='image':
+                ref=cmd[-1]
+                return SimpleNamespace(stdout=json.dumps([{'Os':'linux','Architecture':'amd64','RepoDigests':[ref.rsplit(':',1)[0]+'@sha256:'+'a'*64]}]))
+            if cmd[1]=='--config':
+                paths.append(Path(cmd[2]))
+                self.assertEqual((Path(cmd[2])/'config.json').stat().st_mode & 0o777,0o600)
+                self.assertNotIn('secret-token',' '.join(cmd))
+                if 'login' in cmd:self.assertEqual(kwargs['input'],'secret-token\n')
+                if 'push' in cmd and cmd[-1]==refs['PROXY']:raise SystemExit('simulated push failure')
+            return SimpleNamespace(stdout='',returncode=0)
+        with patch.object(publish_vm,'refs',return_value=refs),patch.object(publish_vm.getpass,'getpass',return_value='secret-token'),patch.object(publish_vm,'run',side_effect=execute),patch.object(publish_vm,'verify_remote'),patch.object(publish_vm,'write_release') as release:
+            with self.assertRaises(SystemExit):publish_vm.push(v)
+            release.assert_not_called()
+        self.assertTrue(paths)
+        self.assertTrue(all(not p.exists() for p in paths))
+
+
+class WorkstationPullTests(unittest.TestCase):
+    refs = ['fra.ocir.io/test/app@sha256:' + 'a' * 64, 'fra.ocir.io/test/proxy@sha256:' + 'b' * 64]
+
+    def release(self, root, refs=None, mode='public'):
+        refs = refs or self.refs
+        (root / 'images.env').write_text('APP_IMAGE=' + refs[0] + '\nPROXY_IMAGE=' + refs[1] + '\nIMAGE_PULL_AUTH=' + mode + '\n')
+
+    def test_rejects_private_or_unpinned_release_before_download(self):
+        with tempfile.TemporaryDirectory() as folder, patch.object(pull_images, 'ROOT', Path(folder)), patch.object(pull_images, 'run') as run:
+            for refs, mode in [(self.refs, 'private'), (['fra.ocir.io/test/app:latest', self.refs[1]], 'public')]:
+                self.release(Path(folder), refs, mode)
+                with self.assertRaises(SystemExit): pull_images.pull_images()
+            run.assert_not_called()
+
+    def test_public_pull_verifies_local_images_and_preserves_digest_without_engine(self):
+        pulls, inspected = [], []
+        def execute(cmd, **kwargs):
+            self.assertEqual(cmd[:5], ['skopeo', '--override-os', 'linux', '--override-arch', 'amd64'])
+            self.assertNotIn('sudo', cmd)
+            target = Path(cmd[-1].removeprefix('dir:'))
+            self.assertTrue(target.is_dir())
+            if cmd[5] == 'copy':
+                self.assertIn('--src-no-creds', cmd)
+                self.assertIn('--src-tls-verify=true', cmd)
+                self.assertIn('--preserve-digests', cmd)
+                pulls.append(cmd[-2].removeprefix('docker://'))
+                return SimpleNamespace(stdout='')
+            inspected.append(target)
+            return SimpleNamespace(stdout=json.dumps(dict(Os='linux', Architecture='amd64', Digest='sha256:' + target.name)))
+        with tempfile.TemporaryDirectory(prefix='client with spaces ') as folder, patch.object(pull_images, 'ROOT', Path(folder)), patch.object(pull_images, 'run', side_effect=execute), redirect_stdout(io.StringIO()):
+            self.release(Path(folder)); pull_images.pull_images()
+            self.assertTrue(all(p.is_relative_to((Path(folder)/'local/images').resolve()) for p in inspected))
+        self.assertEqual(pulls, self.refs)
+        self.assertEqual(len(inspected), 2)
+
+    def test_wrong_digest_or_arch_stops_before_second_copy(self):
+        for record in [dict(Os='linux', Architecture='arm64', Digest='sha256:' + 'a' * 64),
+                       dict(Os='linux', Architecture='amd64', Digest='sha256:' + 'b' * 64)]:
+            with tempfile.TemporaryDirectory() as folder, patch.object(pull_images, 'ROOT', Path(folder)), patch.object(pull_images, 'run', side_effect=[SimpleNamespace(stdout=''), SimpleNamespace(stdout=json.dumps(record))]) as run:
+                self.release(Path(folder))
+                with self.assertRaises(SystemExit): pull_images.pull_images()
+                self.assertEqual(run.call_count, 2)
+
+
+class PackageChecksumTests(unittest.TestCase):
+    def test_detects_tampered_and_missing_files(self):
+        with tempfile.TemporaryDirectory() as folder, redirect_stdout(io.StringIO()):
+            root = Path(folder)
+            (root/'a.txt').write_bytes(b'original')
+            digest = verify_package.hashlib.sha256(b'original').hexdigest()
+            (root/'SHA256SUMS').write_text(digest + '  a.txt\n')
+            verify_package.verify(root)
+            (root/'a.txt').write_bytes(b'changed')
+            with self.assertRaises(ValueError): verify_package.verify(root)
+            (root/'a.txt').unlink()
+            with self.assertRaises(ValueError): verify_package.verify(root)
+
+    def test_rejects_malformed_or_external_paths(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for record in ['invalid', 'a'*64 + '  ../outside', '']:
+                (root/'SHA256SUMS').write_text(record + '\n')
+                with self.assertRaises(ValueError): verify_package.verify(root)
 
 
 if __name__ == '__main__': unittest.main()

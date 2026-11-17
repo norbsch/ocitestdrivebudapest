@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cloud Shell only. Build/push, settings, key upload and DB preparation precede this.
+# Cloud Shell installer. Published images, settings, credentials and DB preparation precede this.
 set -Eeuo pipefail
 umask 077
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."

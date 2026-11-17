@@ -166,7 +166,7 @@ def use_published_images():
     release = dict(line.split('=', 1) for line in source.read_text().splitlines() if line and not line.startswith('#'))
     keys = ['APP_IMAGE', 'PROXY_IMAGE', 'IMAGE_PULL_AUTH']
     if any(not release.get(k) or 'REPLACE' in release[k] for k in keys):
-        fail('A kepek meg nincsenek kiadva; elobb a helyi build/push es az images.env Git-frissitese kell.')
+        fail('A kepek meg nincsenek kiadva; kerd el az oktatotol a vegleges images.env fajlt, majd frissitsd a repot.')
     if release['IMAGE_PULL_AUTH'] not in ['public', 'private']: fail('Hibas kiadasi hitelesitesi mod.')
     for key in ['APP_IMAGE', 'PROXY_IMAGE']:
         if not re.fullmatch(r'[a-zA-Z0-9._:/@-]+', release[key]) or '/' not in release[key]: fail('Ervenytelen image ref.')
