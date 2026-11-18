@@ -2,7 +2,7 @@
 
 Telepítés **OCI Cloud Shellből**, előre kiadott nyilvános OCIR-képekkel, meglévő AMD64 OKE clusterre. Egy Streamlit-pod és egy LiteLLM-pod indul; konfigurálható OCI PostgreSQL 16, OCI Generative AI és meglévő OCI Load Balancer kapcsolódik hozzájuk.
 
-Kezdd itt: [GUIDE.hu.md](GUIDE.hu.md). A sorrend: Cloud Shell és OCI CLI ellenőrzése → repo klónozása → OKE-hozzáférés → saját beállítások és hitelesítők → DB-előkészítés → telepítőscript → LB → böngészős teszt.
+Kezdd itt: [GUIDE.hu.md](GUIDE.hu.md). A sorrend: Cloud Shell és OCI CLI ellenőrzése → repo klónozása Public Networkön → átváltás Private Networkre és privát OKE-hozzáférés → saját beállítások és hitelesítők → DB-előkészítés → telepítőscript → LB → böngészős teszt.
 
 A Cloud Shellben az OCI CLI és a kubectl előre telepített. A képeket közvetlenül az OKE tölti le az OCIR-ből a worker node-okra; a Cloud Shellben csak a kis telepítőcsomag és a konfiguráció marad. Résztvevőként registry-token és helyi konténerfuttató nem szükséges.
 

@@ -221,7 +221,7 @@ class PublishingTests(unittest.TestCase):
         config = values()
         config['IMAGE_PULL_AUTH'] = 'public'
         public_bytes = b'test-public-der'
-        config['OCI_FINGERPRINT'] = ':'.join(re.findall('..', workshop.hashlib.md5(public_bytes).hexdigest()))
+        config['OCI_FINGERPRINT'] = ':'.join(re.findall('..', workshop.hashlib.md5(public_bytes, usedforsecurity=False).hexdigest()))
         with tempfile.TemporaryDirectory() as folder, patch.object(workshop, 'ROOT', Path(folder)), patch.object(workshop, 'LOCAL', Path(folder)/'local'), patch.object(workshop, 'preflight'), patch.object(workshop.ssl, 'create_default_context'), patch.object(workshop.subprocess, 'run', return_value=SimpleNamespace(returncode=0, stdout=public_bytes)), patch.object(workshop.getpass, 'getpass', side_effect=['test-db-password', 'test-db-password']), redirect_stdout(io.StringIO()):
             local = Path(folder)/'local'
             local.mkdir()
@@ -234,6 +234,51 @@ class PublishingTests(unittest.TestCase):
             workshop.prepare(config, cluster)
             self.assertEqual([c.args[0] for c in cluster.secret.call_args_list], ['litellm-auth', 'oci-api-key'])
             self.assertFalse((local/'registry-auth.json').exists())
+
+    def test_prepare_on_restricted_md5_runtime_keeps_fingerprint_check(self):
+        # Reproduce Cloud Shell rejecting default MD5, while allowing key-ID hashing.
+        real_md5 = workshop.hashlib.md5
+        public_bytes = b'test-public-der'
+        expected = ':'.join(re.findall('..', real_md5(public_bytes, usedforsecurity=False).hexdigest()))
+
+        def restricted_md5(data, *, usedforsecurity=True):
+            if usedforsecurity:
+                raise ValueError('MD5 disabled for security use')
+            return real_md5(data, usedforsecurity=False)
+
+        with self.assertRaises(ValueError):
+            restricted_md5(public_bytes)
+
+        for matches in [True, False]:
+            with self.subTest(matches=matches), tempfile.TemporaryDirectory() as folder:
+                root = Path(folder)
+                local = root / 'local'
+                local.mkdir()
+                (local / 'oci-api-key.pem').write_text('dummy-key')
+                (local / 'postgres-ca.pem').write_text('dummy-ca')
+                (root / 'proxy').mkdir()
+                (root / 'proxy/config.yaml').write_text('model_list: []')
+                config = values()
+                config.update(IMAGE_PULL_AUTH='public', OCI_FINGERPRINT=expected.upper() if matches else ':'.join(['00'] * 16))
+                cluster = MagicMock()
+                cluster.get.return_value = None
+                with patch.object(workshop, 'ROOT', root), patch.object(workshop, 'LOCAL', local), \
+                     patch.object(workshop, 'preflight'), patch.object(workshop.ssl, 'create_default_context'), \
+                     patch.object(workshop.subprocess, 'run', return_value=SimpleNamespace(returncode=0, stdout=public_bytes)), \
+                     patch.object(workshop.hashlib, 'md5', side_effect=restricted_md5), \
+                     patch.object(workshop.getpass, 'getpass', side_effect=['test-db-password', 'test-db-password']) as prompt, \
+                     redirect_stdout(io.StringIO()):
+                    if matches:
+                        workshop.prepare(config, cluster)
+                        cluster.ensure_namespace.assert_called_once()
+                        self.assertEqual([c.args[0] for c in cluster.secret.call_args_list], ['litellm-auth', 'oci-api-key'])
+                    else:
+                        with self.assertRaisesRegex(SystemExit, 'fingerprintje nem egyezik'):
+                            workshop.prepare(config, cluster)
+                        cluster.ensure_namespace.assert_not_called()
+                        cluster.secret.assert_not_called()
+                        prompt.assert_not_called()
+                        self.assertFalse((local / 'credentials.json').exists())
 
     def test_public_release_requires_anonymous_registry_access(self):
         ref = 'fra.ocir.io/publisher/app@sha256:'+'a'*64

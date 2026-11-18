@@ -1,6 +1,6 @@
-Kubernetes telepítőcsomag ellenőrzése, 2026. november 17.
+Kubernetes telepítőcsomag ellenőrzése, frissítve 2026. november 18.
 
-Elvégzett élő műveletek:
+Korábbi élő műveletek a képek kiadásához:
 - A felhasználó kifejezett kérésére létrejött az oci-ai-image-builder VM a gergo_peter_labs compartmentben, Frankfurtban: Ubuntu 24.04, AMD64, E5 Flex, 2 OCPU, 16 GB memória, 100 GB boot volume.
 - Külön builder subnet és security list készült a meglévő litellm-demo-vcn-ben; az SSH a tényleges munkaállomás-kilépőcím /32 tartományára korlátozott. A meglévő app/DB/OKE erőforrásokat nem módosítottuk.
 - Docker 29.1.3, Skopeo, Git, Python 3 és rendszerfüggőségek telepítve.
@@ -14,19 +14,29 @@ Elvégzett élő műveletek:
 
 - A korábbi `python3 tools/pull_images.py` Skopeo-parancs Ubuntu 24.04-en sikeresen letöltötte mindkét teljes képet fájlokba; a digest és a Linux/AMD64 platform ellenőrzése is sikeres. Ez a segédeszköz az új Cloud Shell guide-nak nem része, a résztvevőnek nem kell futtatnia.
 
-Helyi ellenőrzések:
+A felhasználó által végrehajtott és kimenetekkel/visszajelzéssel igazolt p01 próbák, 2026-11-18:
+- Cloud Shell eszközök és OCI CLI-hitelesítés működnek; a résztvevő által bemásolt get nodes kimenetben három Ready/amd64 worker szerepel: 10.0.1.149, 10.0.1.200, 10.0.1.227. A Private Network használatát a felhasználó jelezte.
+- A podból futtatott PostgreSQL TCP-próba, valamint a külön TLS-, CA- és szervernévpróba PASS eredményt adott. A kubectl gyorsan lefutó podhoz kapcsolódási figyelmeztetése után megjelent a sikeres eredmény, és a pod törlődött.
+- A részletes app-login próba password authentication failed hibát adott a litellm_k8s userre. Az admin labadmin belépése sikerült, a csak olvasó ellenőrzés szerint a litellm_k8s user és adatbázis ekkor még hiányzott. Az eredeti általános OperationalError teljes oka nem bizonyított.
+- Az ezt követő init-db sikerült; az átmeneti admin Secret és Job törlődött. A prepare-db, a LiteLLM migráció és az install.sh is sikeresen lefutott.
+- A legutóbbi állapotban a litellm és streamlit pod 1/1 Running, a db-check-db és litellm-migrate Job Complete. A LiteLLM Service ClusterIP/4000, a Streamlit NodePort 80:30080. A régi db-diagnose Failed eredménye megmaradt.
+- A felhasználó az LB backend health állapotát OK-nak jelezte, és megerősítette a HTTP/8080 listener létét; az LB-n nincs NSG.
+- A Macről az LB 92.5.181.255:8080 /_stcore/health próbája először 5 másodperces kapcsolati timeoutot és HTTP-kod: 000 eredményt adott. A felhasználó ezt követően megerősítette, hogy a 8080-as elérés böngészőből működik. A korábbi timeout okát nem azonosítottuk.
+
+Helyi ellenőrzések és útmutató-javítások:
+- Az init-db hibaüzenete már nem javasolja a takarítás során törölt admin Job naplójának lekérését. A guide a jelszavak, a prepare/init-db/prepare-db lépések és a mentett hitelesítők szerepét külön leírja.
+- Az LB-rész megkülönbözteti a böngésző → LB:8080 és LB → worker:30080 kapcsolatot. NSG nélkül a hozzárendelt subnet Security Listjének lépéseit adja meg, résztvevői forrás-CIDR-rel; a Healthy backend után külön böngészős health próba következik. A hibakeresés külön kezeli a timeoutot, TCP-elutasítást és HTTP-hibaválaszt.
+- A felhasználó jelzése alapján a guide privát OKE-elérést használ. Repo-letöltés Public Networkön, majd Cloud Shell Private Network és PRIVATE_ENDPOINT; az API-címet külön parancs mutatja. Ehhez nem módosítottunk élő OCI-hálózatot.
 - A résztvevői guide 10 lépésből áll, kizárólag Cloud Shellből történő telepítéshez. Az előre telepített OCI CLI és kubectl ellenőrzésével indul, a Cloud Shell beépített hitelesítését megtartja. A LiteLLM saját API-kulcsot kap.
 - A fő útvonalban nincs helyi image-letöltés vagy konténerfuttatás. A képeket az OKE tölti le közvetlenül a nyilvános OCIR-ből. A hibakeresés, frissítés és eltávolítás az UZEMELTETES.hu.md fájlba került.
-- 34 offline teszt: DB TLS/URL-kezelés, DB-bootstrap szerepkör-kezelés, manifestek, nem root podok, namespace/context, Secret-megőrzés, public registry tokenmentes résztvevői telepítése, kiadási képcímek átvétele, publikációs hibák utáni kiadásmegőrzés, authfájl törlése, platformellenőrzés, a munkaállomás-letöltő anonim hozzáférése és hibás digest/platform elutasítása.
+- 35 offline teszt: DB TLS/URL-kezelés, DB-bootstrap szerepkör-kezelés, manifestek, nem root podok, namespace/context, Secret-megőrzés, public registry tokenmentes résztvevői telepítése, kiadási képcímek átvétele, publikációs hibák utáni kiadásmegőrzés, authfájl törlése, platformellenőrzés, a munkaállomás-letöltő anonim hozzáférése és hibás digest/platform elutasítása.
+- A felhasználó Cloud Shell-kimenete szerint a CA, PEM és OKE ellenőrzése sikeres, az alapértelmezett MD5-hívás viszont ValueError hibát dob. A javítás usedforsecurity=False jelöléssel számítja az OCI-kulcs azonosítóját. A korlátozást szimuláló regressziós teszt egyező fingerprinttel sikeres prepare-t, eltérővel pedig jelszóbekérés és clusterírás előtti elutasítást ellenőriz.
 - Python 3.9-kompatibilis szintaxis, a guide Bash parancsblokkjai, helyi hivatkozások, 8 Kubernetes manifest renderelése és a csomag ellenőrzőösszegei ellenőrizve. A script public képeknél nem kér registry-tokent, és a podok nem kapnak imagePullSecretet.
 - A .dockerignore whitelist alapján csak az alkalmazás-/runtime-források kerülnek a build contextbe. A csomag nem tartalmaz valódi jelszót, privát kulcsot, registry tokent vagy kubeconfigot.
 
-Még nem ellenőrzött élő telepítési lépések:
-- A friss Cloud Shell guide teljes, elejétől végéig történő végrehajtása. A beépített eszközök, CLI-hitelesítés és feltöltés lépései hivatalos OCI dokumentáció alapján készültek.
-- A résztvevő aktuális Cloud Shell sessionjének hálózati elérése az OKE API-hoz.
-- Kubernetes API-szerveres dry-run, podütemezés és futás a résztvevő OKE clusterén.
-- PostgreSQL bootstrap, verify-full kapcsolat és LiteLLM sémamigráció a cél adatbázison.
+Még nem igazolt élő telepítési lépések:
+- A most pontosított guide teljes megismétlése tiszta résztvevői környezetben. A javítások a mai, közben diagnosztikával kiegészített telepítés tapasztalatait rögzítik.
+- Külön külső HTTP health mérés 200 eredménnyel a korábbi sikertelen curl után, illetve tartós Streamlit chatmunkamenet. A böngészős alkalmazáselérés és az LB → worker health már sikeres a felhasználó visszajelzése szerint.
 - GenAI modellhívás és a konkrét hívás költségének/spend sorának ellenőrzése.
-- A meglévő Load Balancer → worker NodePort → Streamlit útvonal, HTTP/WebSocket és böngészős munkamenet.
 
-A jelenlegi műveletekben nem történt clustertelepítés, DB-módosítás, fizetős modellhívás vagy Git-push. A Cloud Shell korábbi 4,6 GiB-os tárhelyén a LiteLLM kép végső commitja meghiúsult; a PUBLISH.hu.md ezért a külön build VM-et használja.
+A mostani guide-módosítás helyi fájlokra és csomagellenőrzésre korlátozódott; OCI-módosítás vagy Git-push nem történt. A fenti cluster- és DB-műveleteket a felhasználó végezte el. A Cloud Shell korábbi 4,6 GiB-os tárhelyén a LiteLLM kép végső commitja meghiúsult; a PUBLISH.hu.md ezért a külön build VM-et használja.

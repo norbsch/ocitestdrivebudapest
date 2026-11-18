@@ -205,7 +205,7 @@ def prepare(v, cluster):
     # Empty passphrase prevents an unexpected interactive OpenSSL prompt.
     public = subprocess.run(['openssl', 'pkey', '-in', str(key_path), '-passin', 'pass:', '-pubout', '-outform', 'DER'], capture_output=True)
     if public.returncode: fail('Az OCI API-kulcs nem olvashato vagy titkositott; ellenorizd a fajlt.')
-    actual = ':'.join(re.findall('..', hashlib.md5(public.stdout).hexdigest()))
+    actual = ':'.join(re.findall('..', hashlib.md5(public.stdout, usedforsecurity=False).hexdigest()))
     if actual.lower() != v['OCI_FINGERPRINT'].lower(): fail('Az API-kulcs fingerprintje nem egyezik.')
     auth_path = LOCAL / 'registry-auth.json'
     if v['IMAGE_PULL_AUTH'] == 'private' and not auth_path.is_file():
@@ -294,7 +294,8 @@ def main(argv=None):
             for line in logs.splitlines():
                 if re.fullmatch(r'FAIL: [a-zA-Z]+(?: SQLSTATE=[A-Z0-9]{5})?\..*', line):
                     print(line)
-            raise
+            fail('DB-elokeszites sikertelen. A db-init-db Job es a db-admin-once Secret takaritasa kovetkezik; '
+                 'utanuk a Job naploja mar nem elerheto. Kovetkezo lepes: UZEMELTETES.hu.md, DB-kapcsolatproba.')
         finally:
             # Remove admin credential consumers before removing the one-time Secret.
             try:

@@ -1,5 +1,22 @@
 Elsődleges technikai források, ellenőrizve 2026-11-17.
 
+Kiegészítés, 2026-11-18: Python hashlib usedforsecurity és korlátozott MD5
+https://docs.python.org/3.12/library/hashlib.html
+
+Kiegészítés, ellenőrizve 2026-11-18: a workshop DB- és LB-hibakeresése
+PostgreSQL 16 hitelesítési hibák és szerveroldali napló
+https://www.postgresql.org/docs/16/client-authentication-problems.html
+OCI Security Lists: subnethez rendelt ingress/egress, NSG nélküli hozzáférés
+https://docs.oracle.com/en-us/iaas/Content/Network/Concepts/securitylists.htm
+OCI backend set: Weighted round robin, SSL és health mezők
+https://docs.oracle.com/en-us/iaas/Content/Balance/Tasks/managingbackendsets_topic-Creating_Backend_Sets.htm
+OCI listener: port, protokoll, backend set és idle timeout
+https://docs.oracle.com/en-us/iaas/Content/Balance/Tasks/managinglisteners_topic-Creating_Listeners.htm
+OCI health: háromperces státuszfrissítés; OK backend mellett listener/security rule hiba is lehet
+https://docs.oracle.com/en-us/iaas/Content/Balance/Tasks/understanding_health_issues.htm
+ipify publikus IPv4-lekérdezés
+https://www.ipify.org/
+
 Cloud Shell szolgáltatás és hálózati háttér
 https://docs.oracle.com/en-us/iaas/Content/API/Concepts/cloudshellintro.htm
 Cloud Shell beépített CLI-hitelesítés, Python-választás és fájlfeltöltés
