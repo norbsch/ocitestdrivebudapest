@@ -14,7 +14,7 @@ require_vm() {
     . /etc/os-release
     [[ "$ID" == ubuntu && "$VERSION_ID" == 24.04 ]] || fail 'Ubuntu 24.04 VM szukseges; Cloud Shellben ne futtasd.'
     [[ "$(dpkg --print-architecture)" == amd64 ]] || fail 'Ez a workshop amd64 VM-ekhez keszult.'
-    sudo -v
+    sudo -n true
     cd "$WORKSHOP_ROOT"
 }
 check_port() {

@@ -1,6 +1,6 @@
 # OCI workshop alkalmazások telepítése Cloud Shellből
 
-**Kiindulás:** minden résztvevő OCI-adminisztrátori fiókkal dolgozik. Az infrastruktúrában már van VCN, privát subnet, három Ubuntu 24.04 x86_64 VM, Load Balancer és menedzselt PostgreSQL 16. A VM-ek SSH-felhasználója `ubuntu`, van sudo-jogod, és a VM-ekről működik a csomagletöltés. Más OS, felhasználó vagy architektúra esetén előbb egyeztess az oktatóval.
+**Kiindulás:** minden résztvevő OCI-adminisztrátori fiókkal dolgozik. Az infrastruktúrában már van VCN, privát subnet, három Ubuntu 24.04 x86_64 VM, Load Balancer és menedzselt PostgreSQL 16. A VM-ek SSH-felhasználója `ubuntu`, van jelszó nélküli sudo-jogod, és a VM-ekről működik a csomagletöltés. Más OS, felhasználó vagy architektúra esetén előbb egyeztess az oktatóval.
 
 **Telepítési útvonal:** böngésző → OCI Cloud Shell Private Network Access → közvetlen SSH a privát VM-ekre. A Cloud Shellhez rendelt privát hálózatnak el kell érnie mindhárom VM-et.
 
@@ -147,6 +147,15 @@ Nano mentés: Ctrl+O → Enter → Ctrl+X. A további szerkesztéseknél is így
 A p01 környezetben a két meglévő app címe `10.0.1.2` és `10.0.1.3`. A külön LiteLLM VM címét az infrastruktúra gazdájától kérd el; az egyik app címét ne használd LiteLLM-címként.
 
 A GitHubra a legújabb telepítőszkripteknek és segédfájloknak is fel kell kerülniük. Ha a `scripts/prepare_postgres.sh`, `scripts/install_litellm.sh` vagy `scripts/install_app.sh` hiányzik, ne folytasd a régebbi repo-verzióval.
+
+**Másolás előtti sudo-ellenőrzés, CLOUD SHELL:** az `Applications` könyvtárban futtasd az alábbiakat. A `sed` a régi `sudo -v` ellenőrzést javítja; a már javított fájlt változatlanul hagyja. Így mindhárom VM-re a megfelelő közös script kerül.
+
+```bash
+sed -i 's/sudo -v/sudo -n true/' scripts/common.sh
+grep -n 'sudo -n true' scripts/common.sh
+```
+
+**Elvárt:** megjelenik a `sudo -n true` ellenőrzést tartalmazó sor. A későbbi telepítők nem kérhetnek Ubuntu-jelszót; a PostgreSQL-jelszókérések ettől különállóak.
 
 ## 4 A hálózati szabályok ellenőrzése
 
@@ -387,8 +396,13 @@ Legyen kéznél a `DB_ADMIN` felhasználó DB-jelszava. Válassz egy külön jel
 
 ```bash
 cd /home/ubuntu/oci-ai-workshop
-bash scripts/prepare_postgres.sh
+sed -i 's/sudo -v/sudo -n true/' scripts/common.sh
+sudo -n true && bash scripts/prepare_postgres.sh
 ```
+
+A `sudo -n true` jelszókérés nélkül ellenőrzi a jogosultságot. Ha sikeres, elindul a telepítő. Ha `a password is required` hibát kapsz, állj meg: az infrastruktúra gazdájával rendezni kell az `ubuntu` felhasználó jelszó nélküli sudo-jogát. Ne adj meg PostgreSQL-jelszót Ubuntu-jelszó helyett.
+
+Ha egy korábbi futtatás mégis `[sudo] password for ubuntu:` kérdésnél vár, nyomj Ctrl+C-t, majd futtasd a fenti teljes parancsblokkot. A `sed` a közös script ellenőrzését javítja, nem módosítja a mentett alkalmazáskulcsokat vagy DB-jelszót.
 
 A script sorrendben:
 
@@ -733,6 +747,7 @@ FROM "LiteLLM_SpendLogs" ORDER BY "startTime" DESC LIMIT 10;
 | `database litellm does not exist` | A 7.5 pont PostgreSQL-előkészítése nem fejeződött be; javítsd a hibát, futtasd újra, és csak a 8. pont sikeres ellenőrzése után folytasd |
 | DB TLS-hiba | Primary FQDN és a saját DB-hez letöltött CA ellenőrzése |
 | Hiányzó app/.env | Előbb a 11. és 13. fejezetet fejezd be |
+| `[sudo] password for ubuntu:` a script elején | Ctrl+C, majd a VM-en: `cd ~/oci-ai-workshop`, utána `sed -i 's/sudo -v/sudo -n true/' scripts/common.sh`. Ellenőrzés: `sudo -n true`. Siker után indítsd újra a telepítőt; ha az ellenőrzés hibát ad, az infrastruktúra gazdájával rendezd a NOPASSWD-jogot. A Cloud Shell repo-példányában is végezd el a 3.3 pont javítását. |
 | A telepítő célgép-hibával kilép | SSH után, ubuntu felhasználóként, Ubuntu 24.04 amd64 VM-en, /home/ubuntu/oci-ai-workshop alatt indítsd |
 | HTTP 401/403 | Appkulcs/modellalias, majd OCI user, API-kulcs, fingerprint és compartment ellenőrzése |
 | HTTP 429 | Várj; a kulcs 10 kérés/perc limitű, OCI-kvóta is korlátozhat |
