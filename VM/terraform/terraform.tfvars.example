@@ -1,10 +1,10 @@
-# Copy this file to terraform.tfvars and edit it. All attendee settings live here.
+# Copy this file to terraform.tfvars and edit it. PLease change compartment OCIDs.
 region                   = "eu-frankfurt-1"
 auth_method              = "InstancePrincipal"
 config_file_profile      = "DEFAULT"
-tenancy_ocid             = "ocid1.tenancy.oc1..REPLACE_ME"
-compartment_ocid         = "ocid1.compartment.oc1..REPLACE_ME"
-network_compartment_ocid = "ocid1.compartment.oc1..REPLACE_ME"
+tenancy_ocid             = "ocid1.tenancy.oc1..REPLACE_ME" # REQUIRED please change
+compartment_ocid         = "ocid1.compartment.oc1..REPLACE_ME" # REQUIRED please change
+network_compartment_ocid = "ocid1.compartment.oc1..REPLACE_ME" # REQUIRED please change
 
 vcn_name           = "p01-vcn"
 subnet_name        = "p01-subnet-private-vm"

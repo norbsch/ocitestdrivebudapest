@@ -1,15 +1,15 @@
-# Copy to terraform.tfvars, then replace the compartment OCID.
+# Copy to terraform.tfvars, then replace the compartment OCID and availability_domain. You can also set db_admin_password for the lab here if you prefer.
 region                   = "eu-frankfurt-1"
 auth_method              = "InstancePrincipal"
 config_file_profile      = "DEFAULT"
-compartment_ocid         = "ocid1.compartment.oc1..REPLACE_ME"
+compartment_ocid         = "ocid1.compartment.oc1..REPLACE_ME" # REQUIRED please change
 network_compartment_ocid = null # Set an OCID if the network is in another compartment.
 
 db_system_name        = "p01-postgresql"
 db_version            = "16"
 node_count            = 2
 storage_iops          = 75000
-availability_domain   = "GsUS:EU-FRANKFURT-1-AD-1"
+availability_domain   = "GsUS:EU-FRANKFURT-1-AD-1" # REQUIRED please change
 is_regionally_durable = false
 shape                 = "PostgreSQL.VM.Standard.E5.Flex"
 ocpu_count            = 2

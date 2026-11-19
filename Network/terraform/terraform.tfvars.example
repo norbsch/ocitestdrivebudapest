@@ -1,7 +1,7 @@
 # ATTENDEES: edit this file. Resource definitions are in main.tf.
 # Required: replace the compartment OCID, verify region, and choose your prefix.
 region              = "eu-frankfurt-1"
-compartment_id      = "ocid1.compartment.oc1..REPLACE_ME"
+compartment_id      = "ocid1.compartment.oc1..REPLACE_ME" # REQUIRED please change
 auth_method         = "InstancePrincipal"
 config_file_profile = "DEFAULT"
 name_prefix         = "p01"

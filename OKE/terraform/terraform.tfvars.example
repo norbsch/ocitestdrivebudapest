@@ -1,9 +1,9 @@
-# Copy to terraform.tfvars. Set both compartment OCIDs and api_allowed_cidrs.
+# Copy to terraform.tfvars. Set both compartment OCIDs, availability_domain, api_allowed_cidrs.
 region                 = "eu-frankfurt-1"
 auth_method            = "InstancePrincipal"
 config_file_profile    = "DEFAULT"
-compartment_id         = "ocid1.compartment.oc1..REPLACE_ME"
-network_compartment_id = "ocid1.compartment.oc1..REPLACE_ME"
+compartment_id         = "ocid1.compartment.oc1..REPLACE_ME" # REQUIRED please change
+network_compartment_id = "ocid1.compartment.oc1..REPLACE_ME" # REQUIRED please change
 
 vcn_name           = "p01-vcn"
 api_subnet_name    = "p01-subnet-public-lb"
@@ -20,11 +20,11 @@ pods_cidr             = "10.244.0.0/16"
 services_cidr         = "10.96.0.0/16"
 
 node_pool_name      = "p01-oke-pool-01"
-availability_domain = "GsUS:EU-FRANKFURT-1-AD-3"
+availability_domain = "GsUS:EU-FRANKFURT-1-AD-3" # REQUIRED please change
 node_shape          = "VM.Standard.E5.Flex"
 node_ocpus          = 2
 node_memory_gbs     = 8
-node_count          = 3
+node_count          = 2
 
 # Standard x86 OL8 OKE worker image, exact requested build date.
 # Version compatibility is additionally checked against node-pool-options.

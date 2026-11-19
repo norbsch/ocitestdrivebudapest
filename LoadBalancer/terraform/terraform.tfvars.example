@@ -1,8 +1,8 @@
-# Copy this file to terraform.tfvars, then edit the values for your tenancy.
+# Copy this file to terraform.tfvars, then edit the values for your tenancy. Replace the compartment OCIDs.
 region                 = "eu-frankfurt-1"
 auth_method            = "InstancePrincipal"
 config_file_profile    = "DEFAULT"
-compartment_id         = "ocid1.compartment.oc1..REPLACE_ME"
+compartment_id         = "ocid1.compartment.oc1..REPLACE_ME" # REQUIRED please change
 network_compartment_id = null # null = same compartment as the LB
 backend_compartment_id = null # null = same compartment as the LB
 
